@@ -144,20 +144,19 @@ const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "
 const clone = (v) => JSON.parse(JSON.stringify(v));
 const hexToIp = (h) => { const n = parseInt(h, 16); return [n & 255, (n >>> 8) & 255, (n >>> 16) & 255, (n >>> 24) & 255].join("."); };
 const ipToHex = (ip) => { const p = ip.split(".").map(Number); if (p.length !== 4 || p.some((x) => !(x >= 0 && x <= 255))) return null; return "0x" + ((p[3] << 24 >>> 0) + (p[2] << 16) + (p[1] << 8) + p[0]).toString(16).toUpperCase().padStart(8, "0"); };
-/** Couleurs des textes à l'écran : 0xAABBGGRR (opacité, puis bleu, vert, rouge, comme les couleurs Windows de l'ActiveX).
- *  Ordre déduit, à confirmer sur une caméra : si « Rouge » s'affiche en bleu, inverser R et B ici. */
+/** Couleurs des textes à l'écran : 0xAARRGGBB (opacité, rouge, vert, bleu), vérifié sur une caméra V4.02. */
 const COLOR_KEYS = new Set(["FrontColor", "BackColor"]);
-const COLORS = [["Blanc", "FFFFFF"], ["Noir", "000000"], ["Gris", "808080"], ["Rouge", "0000FF"], ["Vert", "00FF00"], ["Bleu", "FF0000"],
-  ["Jaune", "00FFFF"], ["Cyan", "FFFF00"], ["Magenta", "FF00FF"], ["Orange", "0080FF"]];
+const COLORS = [["Blanc", "FFFFFF"], ["Noir", "000000"], ["Gris", "808080"], ["Rouge", "FF0000"], ["Vert", "00FF00"], ["Bleu", "0000FF"],
+  ["Jaune", "FFFF00"], ["Cyan", "00FFFF"], ["Magenta", "FF00FF"], ["Orange", "FF8000"]];
 function colorField(key, value, path, id) {
-  const n = parseInt(value, 16) >>> 0, alpha = n >>> 24, bgr = (n & 0xFFFFFF).toString(16).toUpperCase().padStart(6, "0");
+  const n = parseInt(value, 16) >>> 0, alpha = n >>> 24, rgb = (n & 0xFFFFFF).toString(16).toUpperCase().padStart(6, "0");
   const keepAlpha = (alpha || 0xF0).toString(16).toUpperCase().padStart(2, "0");
   const opts = [];
   let known = false;
   const opt = (label, v) => { const sel = (parseInt(v, 16) >>> 0) === n; known ||= sel; opts.push(`<option value="${v}"${sel ? " selected" : ""}>${label}</option>`); };
   opt("Transparent (aucun)", "0x00000000");
   for (const [label, c] of COLORS) opt(label, `0x${keepAlpha}${c}`);
-  const name = COLORS.find(([, c]) => c === bgr)?.[0];
+  const name = COLORS.find(([, c]) => c === rgb)?.[0];
   if (!known) opts.push(`<option value="${esc(value)}" selected>${esc(name ? `${name} (opacité ${Math.round(alpha / 2.55)} %)` : `Autre (${value})`)}</option>`);
   return `<div class="row">${labelFor(key, path)}<select id="${esc(id)}" data-path="${esc(path)}" data-type="str">${opts.join("")}</select></div>`;
 }

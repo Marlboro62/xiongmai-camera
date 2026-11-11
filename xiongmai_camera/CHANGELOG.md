@@ -1,5 +1,9 @@
 # Changements
 
+## 0.1.0-beta.18
+
+- Correction : couleurs des textes à l'écran, le rouge et le bleu étaient inversés (ainsi que jaune / cyan et orange). L'ordre est maintenant vérifié sur une vraie caméra.
+
 ## 0.1.0-beta.17
 
 - Correction : l'application ne recevait pas son accès à Home Assistant (jeton du Supervisor), car l'image de base la lance par s6-overlay sans transmettre cette variable. Elle la relit maintenant là où s6 la range : l'heure de Home Assistant, le fuseau horaire et l'option `snapshot_entity` fonctionnent.
