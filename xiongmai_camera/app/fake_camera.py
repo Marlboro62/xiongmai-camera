@@ -23,7 +23,7 @@ CONFIG = {
                         "OverWrite": "OverWrite", "ScreenAutoShutdown": 10, "ScreenSaveTime": 0, "VideoOutPut": "Auto"},
     "General.Location": {"DSTEnd": {"Day": 1, "Hour": 3, "Minute": 0, "Month": 10, "Week": -1, "Year": 2026},
                          "DSTRule": "On", "DSTStart": {"Day": 1, "Hour": 2, "Minute": 0, "Month": 3, "Week": -1, "Year": 2026},
-                         "DateFormat": "DDMMYY", "DateSeparator": "/", "Language": "French", "TimeFormat": "24",
+                         "DateFormat": "DDMMYY", "DateSeparator": "/", "Language": "English", "TimeFormat": "24",
                          "VideoFormat": "PAL", "WorkDay": 62},
     "Camera.Param": [{"AeSensitivity": 5, "ApertureMode": "0x00000001", "BLCMode": "0x00000000", "DayNightColor": "0x00000000",
                       "Day_nfLevel": 3, "DncThr": 30, "ElecLevel": 50, "EsShutter": "0x00000000",
@@ -101,6 +101,8 @@ async def handle(reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> 
                     resp = {"Name": name, "Ret": 603 if name.startswith("NetWork.") else 100}
             elif msg == SYSINFO_REQ:
                 resp = {"Name": "SystemInfo", "SystemInfo": SYSINFO, "Ret": 100}
+            elif msg == ABILITY_GET and name == "MultiLanguage":
+                resp = {"Name": name, name: ["English", "SimpChinese", "French", "German"], "Ret": 100}
             elif msg == ABILITY_GET and name == "MotionArea":
                 resp = {"Name": name, name: {"GridColumn": 22, "GridRow": 18}, "Ret": 100}
             elif msg == ABILITY_GET:

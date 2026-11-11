@@ -52,7 +52,7 @@ const L = {
   // Camera.ParamEx
   AutomaticAdjustment: ["Réglage automatique de l'image"], LDCValue: ["Force de la correction de déformation", "Utilisée quand la correction de la déformation est activée"],
   AlarmInfo: ["Texte de l'alerte", "Texte joint au message envoyé"], MsgtoNetEnable: ["Envoi au logiciel CMS (réseau)"], MultimediaMsgEnable: ["Message multimédia (MMS)"],
-  DnsServer1: ["Serveur DNS du cloud 1"], DnsServer2: ["Serveur DNS du cloud 2"], IranCalendar: ["Calendrier iranien"], ChannelName: ["Nom de la caméra"],
+  DnsServer1: ["Serveur DNS du cloud 1"], DnsServer2: ["Serveur DNS du cloud 2"], IranCalendar: ["Calendrier iranien"], Language: ["Langue", "Langue des menus de la caméra (NetSurveillance, CMS), pas celle de cette page"], ChannelName: ["Nom de la caméra"],
   SnapInterval: ["Intervalle entre deux photos (s)", "0 = réglage par défaut"],
   ChannelNum: ["Nombre de canaux", "Information de la caméra : ne pas modifier"], DeviceType: ["Type d'appareil", "Information de la caméra : ne pas modifier"],
   OtherFunction: ["Autres fonctions", "Réservé au fabricant : laisser vide"], SN: ["Numéro de série (réseau)", "Ne le publiez pas"],
@@ -94,15 +94,28 @@ const L = {
   AutoLogout: ["Déconnexion automatique (minutes, 0 : jamais)"], FontSize: ["Taille du texte"], IranCalendarEnable: ["Calendrier iranien"], LocalNo: ["Numéro de l'appareil"],
   MachineName: ["Nom de l'appareil"], OverWrite: ["Quand le disque est plein"], ScreenAutoShutdown: ["Extinction de l'écran"], ScreenSaveTime: ["Écran de veille"],
   VideoOutPut: ["Sortie vidéo", "Sortie écran des enregistreurs : laisser sur Auto"], DSTEnd: ["Fin de l'heure d'été"], DSTStart: ["Début de l'heure d'été"], DSTRule: ["Heure d'été"], DateFormat: ["Format de la date"],
-  DateSeparator: ["Séparateur de date"], Language: ["Langue"], TimeFormat: ["Format de l'heure (12 ou 24)"], VideoFormat: ["Standard vidéo", "PAL en Europe"],
+  DateSeparator: ["Séparateur de date"], TimeFormat: ["Format de l'heure"], VideoFormat: ["Standard vidéo", "PAL en Europe"],
   WorkDay: ["Jours ouvrés"], Day: ["Jour"], Hour: ["Heure"], Minute: ["Minute"], Month: ["Mois"], Week: ["Semaine"], Year: ["Année"],
 };
 // valeurs proposées (liste avec saisie libre) pour quelques réglages connus
-const SUGGEST = {
-  BitRateControl: ["CBR", "VBR"], Compression: ["H.264", "H.265"], Resolution: ["1080P", "960P", "720P", "D1", "CIF", "QVGA"],
-  DateFormat: ["DDMMYY", "MMDDYY", "YYMMDD"], DateSeparator: ["/", "-", "."], TimeFormat: ["24", "12"], VideoFormat: ["PAL", "NTSC"],
-  DSTRule: ["On", "Off"], SensorType: ["NO", "NC"], OverWrite: ["OverWrite", "StopRecord"], MonMode: ["TCP", "UDP"], TransferPlan: ["Quality", "Fluency", "AutoAdapt"],
+const SUGGEST = {};
+/* Textes qui sont des choix : [valeur envoyée à la caméra, libellé] ; une valeur inconnue reste proposée telle quelle */
+const STR_ENUM = {
+  Style: [["typedefault", "Par défaut"], ["type1", "Style 1"], ["type2", "Style 2"], ["type3", "Style 3"]],
+  BitRateControl: [["CBR", "Débit constant (CBR)"], ["VBR", "Débit variable (VBR)"]], Compression: [["H.264", "H.264"], ["H.265", "H.265 (plus léger, moins compatible)"]],
+  Resolution: [["1080P", "1080P (1920 × 1080)"], ["960P", "960P (1280 × 960)"], ["720P", "720P (1280 × 720)"], ["D1", "D1 (704 × 576)"], ["CIF", "CIF (352 × 288)"], ["QVGA", "QVGA (320 × 240)"]],
+  DateFormat: [["DDMMYY", "JJ MM AAAA"], ["MMDDYY", "MM JJ AAAA"], ["YYMMDD", "AAAA MM JJ"]], DateSeparator: [["/", "/"], ["-", "-"], [".", "."]],
+  TimeFormat: [["24", "24 h"], ["12", "12 h (AM / PM)"]], VideoFormat: [["PAL", "PAL (Europe)"], ["NTSC", "NTSC (Amérique, Japon)"]],
+  DSTRule: [["On", "Activée"], ["Off", "Désactivée"]], SensorType: [["NO", "Normalement ouvert (NO)"], ["NC", "Normalement fermé (NC)"]],
+  OverWrite: [["OverWrite", "Écraser les plus anciens"], ["StopRecord", "Arrêter l'enregistrement"]], MonMode: [["TCP", "TCP"], ["UDP", "UDP"]],
+  TransferPlan: [["Quality", "Priorité à la qualité"], ["Fluency", "Priorité à la fluidité"], ["AutoAdapt", "Automatique"]],
+  VideoOutPut: [["Auto", "Automatique"]],
 };
+/* Langues du firmware (liste donnée par la caméra) */
+const LANG_FR = { English: "Anglais", French: "Français", SimpChinese: "Chinois simplifié", TradChinese: "Chinois traditionnel", German: "Allemand", Spanish: "Espagnol",
+  Italian: "Italien", Portugal: "Portugais", Portuguese: "Portugais", Russian: "Russe", Polish: "Polonais", Turkey: "Turc", Turkish: "Turc", Japanese: "Japonais", Korean: "Coréen",
+  Thai: "Thaï", Vietnamese: "Vietnamien", Arabic: "Arabe", Hebrew: "Hébreu", Czech: "Tchèque", Hungarian: "Hongrois", Greek: "Grec", Romanian: "Roumain", Dutch: "Néerlandais",
+  Swedish: "Suédois", Finnish: "Finnois", Persian: "Persan", Brazilian: "Portugais (Brésil)", Bulgarian: "Bulgare", Indonesian: "Indonésien", Ukrainian: "Ukrainien" };
 // réglages « 0x00000000 / 0x00000001 » à présenter comme un interrupteur
 const HEX_BOOL = new Set(["PictureFlip", "PictureMirror", "RejectFlicker", "BLCMode", "ApertureMode"]);
 /* Valeurs hexadécimales qui sont en fait des choix (même codage que NetSurveillance et CMS) */
@@ -120,9 +133,8 @@ const NUM_ENUM = {
 /* Temps d'exposition : microsecondes en hexadécimal (0x10000 = 65 536 µs), affichés en millisecondes */
 const US_KEYS = new Set(["LeastTime", "MostTime", "ExposureTime"]);
 /* Nombres 0 / 1 qui sont des interrupteurs */
-const NUM_BOOL = new Set(["AutoGain", "IrcutSwap", "Ldc", "LowLuxMode", "PreventOverExpo", "CorridorMode", "Dis"]);
-/* Textes qui sont des choix */
-const STR_ENUM = { Style: [["typedefault", "Par défaut"], ["type1", "Style 1"], ["type2", "Style 2"], ["type3", "Style 3"]] };
+const NUM_BOOL = new Set(["IranCalendar", "IranCalendarEnable", "AutoGain", "IrcutSwap", "Ldc", "LowLuxMode", "PreventOverExpo", "CorridorMode", "Dis"]);
+
 // adresses IPv4 codées en hexadécimal, octets à l'envers (0x0A01A8C0 = 192.168.1.10)
 const IP_KEYS = new Set(["HostIP", "Submask", "GateWay", "Address", "SpareAddress", "DnsServer1", "DnsServer2"]);
 
@@ -336,6 +348,12 @@ function field(key, value, path) {
     const opts = NUM_ENUM[key].map(([v, l]) => `<option value="${v}"${v === value ? " selected" : ""}>${esc(l)}</option>`).join("") + (known ? "" : `<option value="${value}" selected>Autre (${value})</option>`);
     return `<div class="row">${labelFor(key, path)}<select id="${esc(id)}" data-path="${esc(path)}" data-type="num">${opts}</select></div>`;
   }
+  if (key === "Language" && typeof value === "string") {
+    const langs = (S.langs?.length ? S.langs : Object.keys(LANG_FR)).map((v) => [v, LANG_FR[v] || v]);
+    const known = langs.some(([v]) => v === value);
+    const opts = langs.map(([v, l]) => `<option value="${esc(v)}"${v === value ? " selected" : ""}>${esc(l)}</option>`).join("") + (known ? "" : `<option value="${esc(value)}" selected>${esc(LANG_FR[value] || value)}</option>`);
+    return `<div class="row">${labelFor(key, path)}<select id="${esc(id)}" data-path="${esc(path)}" data-type="str">${opts}</select></div>`;
+  }
   if (STR_ENUM[key] && typeof value === "string") {
     const known = STR_ENUM[key].some(([v]) => v === value);
     const opts = STR_ENUM[key].map(([v, l]) => `<option value="${esc(v)}"${v === value ? " selected" : ""}>${esc(l)}</option>`).join("") + (known ? "" : `<option value="${esc(value)}" selected>${esc(value)}</option>`);
@@ -448,7 +466,7 @@ async function pageSection(name, preset = null, note = "") {
   try {
     const d = await api(`api/${S.cam.id}/config/${encodeURIComponent(name)}`);
     if (!S.sys[S.cam.id]) { try { S.sys[S.cam.id] = (await api(`api/${S.cam.id}/info`)).info; } catch (e) { S.sys[S.cam.id] = {}; } }
-    S.name = name; S.orig = d.value; S.value = preset ?? d.value; S.backups = d.backups || []; S.grid = d.grid || null;
+    S.name = name; S.orig = d.value; S.value = preset ?? d.value; S.backups = d.backups || []; S.grid = d.grid || null; S.langs = d.languages || null;
     const opts = S.backups.map((b) => `<option value="${esc(b)}">${esc(b.replace("_", " à ").replace(/-(\d\d)-(\d\d)$/, " h $1 min $2"))}</option>`).join("");
     m.innerHTML = `<h2>${esc(title)}</h2><p class="muted">${esc(desc)} · <code>${esc(name)}</code></p>
       ${RISKY.test(name) ? `<div class="note warn"><b>Réglage sensible</b> : une erreur d'adresse ou de port peut rendre la caméra injoignable. Notez les valeurs actuelles, ou exportez la configuration avant de modifier.</div>` : ""}

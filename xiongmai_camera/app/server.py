@@ -24,7 +24,7 @@ from urllib.parse import parse_qs, quote, unquote, urlsplit
 
 from dvrip import DvripClient, DvripError
 
-VERSION = "0.1.0-beta.11"
+VERSION = "0.1.0-beta.12"
 DATA = Path(os.environ.get("XM_DATA", "/data"))
 STATIC = Path(__file__).parent / "static"
 INGRESS_IP = "172.30.32.2"
@@ -252,6 +252,13 @@ class App:
             data = {"name": name, "value": value, "backups": list_backups(cam["id"], name)}
             if name.startswith("Detect."):
                 data["grid"] = await self._grid(client)
+            if name == "General.Location":
+                try:
+                    langs = await client.ability("MultiLanguage")
+                    if isinstance(langs, list) and all(isinstance(x, str) for x in langs):
+                        data["languages"] = langs
+                except DvripError:
+                    pass
             return json_response(data)
         except DvripError as err:
             return self._error(err)

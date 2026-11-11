@@ -1,5 +1,11 @@
 # Changements
 
+## 0.1.0-beta.12
+
+- **Langue** : liste des langues proposées par la caméra elle-même (Anglais, Français…), au lieu d'un champ texte qui ne montrait que la valeur actuelle. C'est la langue des menus de la caméra (NetSurveillance, CMS), pas celle de cette page, qui reste en français.
+- Listes en français au lieu de champs texte : format de la date et de l'heure, séparateur, standard vidéo, heure d'été, type de contact, disque plein, débit, codec, résolution, priorité réseau.
+- Calendrier iranien en interrupteur.
+
 ## 0.1.0-beta.11
 
 - Page **Infos et actions** en clair : entrées audio, sorties vidéo, caméras IP et mode combiné (enregistreurs), dernière mise à jour du firmware (« Jamais »), mise à jour en attente (« Aucune ») ; « Unknown » devient « Non renseigné ».
