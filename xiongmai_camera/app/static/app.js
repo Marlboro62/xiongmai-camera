@@ -67,8 +67,11 @@ const L = {
   Region: ["Zones de détection"], EventHandler: ["Actions"], AlarmOutEnable: ["Déclencher la sortie d'alarme"], AlarmOutLatch: ["Durée de la sortie d'alarme (s)"],
   BeepEnable: ["Bip"], EventLatch: ["Délai entre deux alertes (s)"], FTPEnable: ["Envoi FTP"], MailEnable: ["Envoi d'un e-mail"], MessageEnable: ["Envoi au Centre d'alarme / application"],
   RecordEnable: ["Enregistrement"], RecordLatch: ["Durée d'enregistrement après l'alerte (s)"], ShowInfo: ["Afficher un message"], SnapEnable: ["Photo"],
-  TipEnable: ["Message à l'écran"], VoiceEnable: ["Message vocal"], LogEnable: ["Journal"], PtzEnable: ["Action PTZ"], TourEnable: ["Ronde"],
-  MatrixEnable: ["Matrice"], MultiPicture: ["Écran multiple"], ShortMsgEnable: ["SMS"], SensorType: ["Type de contact", "NO : normalement ouvert · NC : normalement fermé"],
+  TipEnable: ["Message à l'écran"], VoiceEnable: ["Message vocal"], LogEnable: ["Journal"], PtzEnable: ["Action PTZ"], TourEnable: ["Ronde", "Caméra motorisée seulement"],
+  MatrixEnable: ["Matrice vidéo", "Enregistreur seulement : sans effet sur une caméra seule"], CheckDiskInterval: ["Vérification du disque (s)", "Enregistreur seulement"],
+  AlarmOutMask: ["Sorties d'alarme déclenchées"], RecordMask: ["Canaux à enregistrer"], SnapShotMask: ["Canaux à photographier"], ShowInfoMask: ["Canaux qui affichent le message"],
+  TourMask: ["Canaux qui lancent la ronde", "Caméra motorisée seulement"], MatrixMask: ["Canaux de la matrice", "Enregistreur seulement"], PtzLink: ["Action PTZ par canal", "Caméra motorisée seulement"],
+  TimeSection: ["Plage horaire", "Jours et heures où cette détection est active"], MultiPicture: ["Écran multiple"], ShortMsgEnable: ["SMS"], SensorType: ["Type de contact", "NO : normalement ouvert · NC : normalement fermé"],
   AlarmOutStatus: ["État"], AlarmOutType: ["Mode"],
   // réseau
   HostIP: ["Adresse IP"], Submask: ["Masque de sous-réseau"], GateWay: ["Passerelle"], HostName: ["Nom d'hôte"], HttpPort: ["Port web (HTTP)"],
@@ -119,6 +122,55 @@ function colorField(key, value, path, id) {
   if (!known) opts.push(`<option value="${esc(value)}" selected>${esc(name ? `${name} (opacité ${Math.round(alpha / 2.55)} %)` : `Autre (${value})`)}</option>`);
   return `<div class="row">${labelFor(key, path)}<select id="${esc(id)}" data-path="${esc(path)}" data-type="str">${opts.join("")}</select></div>`;
 }
+/* Masques de canaux (« 0x000…01 ») : une case par canal de la caméra (bit 0 = canal 1). */
+const isLongHex = (v) => typeof v === "string" && /^0x[0-9a-f]{9,}$/i.test(v);
+function channels(key) {
+  const i = S.sys?.[S.cam?.id] || {};
+  const n = Number(key === "AlarmOutMask" ? i.AlarmOutChannel : i.VideoInChannel) || 1;
+  return Math.min(Math.max(n, 1), 64);
+}
+function maskField(key, value, path) {
+  const n = BigInt(value), count = channels(key);
+  const boxes = Array.from({ length: count }, (_, b) => {
+    const on = (n >> BigInt(b)) & 1n;
+    const label = key === "AlarmOutMask" ? `Sortie ${b + 1}` : count === 1 ? "Cette caméra" : `Canal ${b + 1}`;
+    return `<label class="chk"><span class="sw"><input type="checkbox" data-bit="${b}" ${on ? "checked" : ""}><span></span></span>${esc(label)}</label>`;
+  }).join("");
+  return `<div class="row">${labelFor(key, path)}<div class="chks" data-path="${esc(path)}" data-type="mask" data-orig="${esc(value)}">${boxes}</div></div>`;
+}
+
+/* Action PTZ liée à l'alerte, par canal : ["None", 0], ["Preset", 3]… (seuls les canaux réels sont affichés). */
+const PTZ = [["None", "Aucune"], ["Preset", "Aller au préréglage n°"], ["Tour", "Lancer la ronde n°"], ["Pattern", "Lancer le parcours n°"]];
+const isPtz = (v) => Array.isArray(v) && v.length && v.every((x) => Array.isArray(x) && x.length === 2 && typeof x[0] === "string");
+function ptzField(key, value, path) {
+  const count = Math.min(channels(key), value.length);
+  const rows = value.slice(0, count).map(([type, num], i) => {
+    const opts = PTZ.map(([v, l]) => `<option value="${v}"${v === type ? " selected" : ""}>${esc(l)}</option>`).join("") + (PTZ.some(([v]) => v === type) ? "" : `<option selected value="${esc(type)}">${esc(type)}</option>`);
+    return `<div class="ptz" data-i="${i}">${count > 1 ? `<span class="muted">Canal ${i + 1}</span>` : ""}<select>${opts}</select><input type="number" min="0" max="255" value="${esc(num)}"></div>`;
+  }).join("");
+  return `<div class="row">${labelFor(key, path)}<div data-path="${esc(path)}" data-type="ptz">${rows}</div></div>`;
+}
+
+/* Plages horaires : 7 jours (0 = dimanche) × 6 plages « 1 08:00:00-18:00:00 » (1 = active). */
+const DAYS = [[1, "Lundi"], [2, "Mardi"], [3, "Mercredi"], [4, "Jeudi"], [5, "Vendredi"], [6, "Samedi"], [0, "Dimanche"]];
+const SLOT_RE = /^([01]) (\d\d:\d\d):\d\d-(\d\d:\d\d):\d\d$/;
+const HHMM_RE = /^(([01]\d|2[0-3]):[0-5]\d|24:00)$/;
+const isSchedule = (v) => Array.isArray(v) && v.length === 7 && v.every((d) => Array.isArray(d) && d.length && d.every((x) => SLOT_RE.test(x)));
+function scheduleField(key, value, path) {
+  const rows = DAYS.map(([d, name]) => {
+    const slots = value[d].map((txt, k) => {
+      const [, en, from, to] = txt.match(SLOT_RE);
+      const shown = en === "1" || k === 0;
+      return `<div class="slot" data-d="${d}" data-k="${k}"${shown ? "" : " hidden"}><span class="sw"><input type="checkbox" ${en === "1" ? "checked" : ""} aria-label="Plage active"><span></span></span>
+        de <input type="text" class="hhmm" value="${from}" inputmode="numeric" aria-label="Début"> à <input type="text" class="hhmm" value="${to}" inputmode="numeric" aria-label="Fin"></div>`;
+    }).join("");
+    const more = value[d].length > 1 ? `<button type="button" class="btn small" data-addslot="${d}">+ plage</button>` : "";
+    return `<div class="day"><b>${name}</b><div>${slots}${more}</div></div>`;
+  }).join("");
+  return `<div class="row md-row">${labelFor(key, path)}<div class="sched" data-path="${esc(path)}" data-type="sched">${rows}
+    <div class="bar"><button type="button" class="btn small" data-allday="1">Tous les jours, 24 h / 24</button><button type="button" class="btn small" data-copymon="1">Copier le lundi sur tous les jours</button></div></div></div>`;
+}
+
 const isHex = (v) => typeof v === "string" && /^0x[0-9a-f]{1,8}$/i.test(v);
 let toastT;
 function toast(msg, bad = false) { const t = $("#toast"); t.textContent = msg; t.classList.toggle("bad", bad); t.classList.add("on"); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove("on"), bad ? 7000 : 3500); }
@@ -130,7 +182,7 @@ async function api(path, opts = {}) {
 }
 
 /* ------------------------------------------------------------------ état */
-const S = { cams: [], cam: null, page: "info", name: null, value: null, orig: null, backups: [] };
+const S = { sys: {}, cams: [], cam: null, page: "info", name: null, value: null, orig: null, backups: [] };
 
 function nav() {
   const items = [`<div class="grp">Caméra</div><button data-page="info">Infos et actions</button>`];
@@ -218,6 +270,9 @@ function field(key, value, path) {
   if (typeof value === "boolean") return `<div class="row">${labelFor(key, path)}<span class="sw"><input type="checkbox" id="${esc(id)}" data-path="${esc(path)}" data-type="bool" ${value ? "checked" : ""}><span></span></span></div>`;
   if (HEX_BOOL.has(key) && isHex(value) && parseInt(value, 16) <= 1) return `<div class="row">${labelFor(key, path)}<span class="sw"><input type="checkbox" id="${esc(id)}" data-path="${esc(path)}" data-type="hexbool" ${parseInt(value, 16) ? "checked" : ""}><span></span></span></div>`;
   if (COLOR_KEYS.has(key) && isHex(value)) return colorField(key, value, path, id);
+  if (/Mask$/.test(key) && isLongHex(value)) return maskField(key, value, path);
+  if (key === "PtzLink" && isPtz(value)) return ptzField(key, value, path);
+  if (key === "TimeSection" && isSchedule(value)) return scheduleField(key, value, path);
   if (IP_KEYS.has(key) && isHex(value)) return `<div class="row">${labelFor(key, path)}<input type="text" id="${esc(id)}" data-path="${esc(path)}" data-type="ip" value="${esc(hexToIp(value))}" inputmode="decimal"></div>`;
   if (typeof value === "number") return `<div class="row">${labelFor(key, path)}<input type="number" id="${esc(id)}" data-path="${esc(path)}" data-type="num" value="${esc(value)}" step="any"></div>`;
   if (typeof value === "string") {
@@ -259,6 +314,25 @@ function readForm() {
     else if (t === "hexbool") setAt(v, p, el.checked ? "0x00000001" : "0x00000000");
     else if (t === "num") { if (el.value === "" || isNaN(Number(el.value))) throw new Error(`Nombre invalide : ${p.split(".").pop()}`); setAt(v, p, Number(el.value)); }
     else if (t === "ip") { const h = ipToHex(el.value.trim()); if (!h) throw new Error(`Adresse IP invalide : ${el.value}`); setAt(v, p, h); }
+    else if (t === "mask") {
+      let n = BigInt(el.dataset.orig);
+      for (const c of el.querySelectorAll("input[data-bit]")) { const bit = 1n << BigInt(c.dataset.bit); n = c.checked ? n | bit : n & ~bit; }
+      setAt(v, p, "0x" + n.toString(16).toUpperCase().padStart(el.dataset.orig.length - 2, "0"));
+    }
+    else if (t === "ptz") {
+      const arr = clone(getAt(v, p));
+      for (const r of el.querySelectorAll(".ptz")) { const num = Number(r.querySelector("input").value); if (!Number.isInteger(num) || num < 0) throw new Error("Numéro PTZ invalide"); arr[r.dataset.i] = [r.querySelector("select").value, num]; }
+      setAt(v, p, arr);
+    }
+    else if (t === "sched") {
+      const arr = clone(getAt(v, p));
+      for (const sl of el.querySelectorAll(".slot")) {
+        const [from, to] = [...sl.querySelectorAll(".hhmm")].map((i) => i.value.trim());
+        if (!HHMM_RE.test(from) || !HHMM_RE.test(to)) throw new Error(`Heure invalide (format HH:MM, ex. 08:30) : ${from} – ${to}`);
+        arr[sl.dataset.d][sl.dataset.k] = `${sl.querySelector("input[type=checkbox]").checked ? 1 : 0} ${from}:00-${to}:00`;
+      }
+      setAt(v, p, arr);
+    }
     else if (t === "json") { try { setAt(v, p, JSON.parse(el.value)); } catch (e) { throw new Error(`JSON invalide : ${p.split(".").pop()}`); } }
     else setAt(v, p, el.value);
   }
@@ -279,6 +353,7 @@ async function pageSection(name, preset = null, note = "") {
   m.innerHTML = `<h2>${esc(title)}</h2><p class="muted">${esc(desc)}</p><p class="muted">Lecture…</p>`;
   try {
     const d = await api(`api/${S.cam.id}/config/${encodeURIComponent(name)}`);
+    if (!S.sys[S.cam.id]) { try { S.sys[S.cam.id] = (await api(`api/${S.cam.id}/info`)).info; } catch (e) { S.sys[S.cam.id] = {}; } }
     S.name = name; S.orig = d.value; S.value = preset ?? d.value; S.backups = d.backups || []; S.grid = d.grid || null;
     const opts = S.backups.map((b) => `<option value="${esc(b)}">${esc(b.replace("_", " à ").replace(/-(\d\d)-(\d\d)$/, " h $1 min $2"))}</option>`).join("");
     m.innerHTML = `<h2>${esc(title)}</h2><p class="muted">${esc(desc)} · <code>${esc(name)}</code></p>
@@ -303,6 +378,22 @@ function wireForm() {
   form.addEventListener("pointerover", (ev) => { const c = ev.target.closest(".grid-md i"); if (c && painting !== null) c.classList.toggle("on", painting); });
   window.addEventListener("pointerup", () => { painting = null; });
   wireSnap(form);
+  form.addEventListener("click", (ev) => {
+    const add = ev.target.closest("[data-addslot]");
+    if (add) { const next = [...add.parentElement.querySelectorAll(".slot[hidden]")][0]; if (next) { next.hidden = false; next.querySelector("input[type=checkbox]").checked = true; } if (!add.parentElement.querySelector(".slot[hidden]")) add.hidden = true; return; }
+    const sched = ev.target.closest(".sched");
+    if (!sched) return;
+    if (ev.target.closest("[data-allday]")) for (const sl of sched.querySelectorAll(".slot")) { const k = sl.dataset.k === "0"; sl.querySelector("input[type=checkbox]").checked = k; const [a, b] = sl.querySelectorAll(".hhmm"); if (k) { a.value = "00:00"; b.value = "24:00"; } }
+    if (ev.target.closest("[data-copymon]")) {
+      const mon = [...sched.querySelectorAll('.slot[data-d="1"]')];
+      for (const sl of sched.querySelectorAll(".slot")) {
+        const src = mon[sl.dataset.k]; if (!src || sl.dataset.d === "1") continue;
+        sl.querySelector("input[type=checkbox]").checked = src.querySelector("input[type=checkbox]").checked;
+        const [a, b] = sl.querySelectorAll(".hhmm"), [c, d] = src.querySelectorAll(".hhmm"); a.value = c.value; b.value = d.value; sl.hidden = src.hidden;
+      }
+    }
+    sched.closest(".row").classList.add("changed");
+  });
   form.addEventListener("click", (ev) => { const r = ev.target.closest("[data-snap]"); if (r) { const img = r.closest(".row").querySelector(".md-snap"); img.src = snapUrl(); } });
   form.addEventListener("click", (ev) => { const b = ev.target.closest("[data-grid]"); if (!b) return; for (const c of form.querySelectorAll(`.grid-md[data-path="${b.dataset.path}"] i`)) c.classList.toggle("on", b.dataset.grid === "all"); });
   $("#reload").onclick = () => pageSection(S.name);

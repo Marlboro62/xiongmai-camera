@@ -1,5 +1,13 @@
 # Changements
 
+## 0.1.0-beta.5
+
+- Actions des alertes en clair :
+  - masques `0x000…` (enregistrement, photo, sortie d'alarme, message…) remplacés par un interrupteur par canal (« Cette caméra », « Sortie 1 ») ;
+  - action PTZ par canal en liste (Aucune, Aller au préréglage n°, Lancer la ronde n°, Lancer le parcours n°) ;
+  - plage horaire en tableau Lundi → Dimanche, avec des heures « de 08:00 à 18:00 », bouton **+ plage**, **Tous les jours, 24 h / 24** et **Copier le lundi sur tous les jours**.
+- Libellés des réglages réservés aux enregistreurs ou caméras motorisées (matrice, ronde, PTZ).
+
 ## 0.1.0-beta.4
 
 - Textes à l'écran : couleur du texte et du fond choisies par leur nom (Blanc, Noir, Rouge, Transparent…) au lieu des codes hexadécimaux ; une couleur inconnue reste proposée telle quelle.

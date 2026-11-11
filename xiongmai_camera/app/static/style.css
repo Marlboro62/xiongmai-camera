@@ -67,4 +67,16 @@ table.kv td:first-child { color: var(--muted); width: 45%; }
 .grid-md i { border: 1px solid rgba(255, 255, 255, .14); cursor: pointer; }
 .md-wrap:not(.has-img) .grid-md i { background: color-mix(in srgb, var(--text) 8%, transparent); }
 .grid-md i.on { background: rgba(240, 163, 58, .38); border-color: rgba(240, 163, 58, .75); }
+.chks { display: flex; flex-wrap: wrap; gap: 6px 16px; }
+.row .chk { display: inline-flex; flex-direction: row; align-items: center; gap: 8px; cursor: pointer; }
+.ptz { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 2px 0; }
+.row .ptz select { width: auto; max-width: 260px; }
+.row .ptz input { width: 80px; }
+.sched .day { display: grid; grid-template-columns: 100px 1fr; gap: 8px; align-items: start; padding: 6px 0; border-top: 1px solid color-mix(in srgb, var(--line) 50%, transparent); }
+.sched .day:first-child { border-top: 0; }
+.sched .day > b { padding-top: 4px; font-weight: 600; }
+.slot { display: flex; align-items: center; gap: 8px; margin: 2px 0; flex-wrap: wrap; }
+.row .slot input.hhmm { width: 72px; text-align: center; }
+.btn.small { padding: 3px 10px; font-size: .85rem; }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+[hidden] { display: none !important; }
