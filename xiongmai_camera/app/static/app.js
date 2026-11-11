@@ -50,9 +50,10 @@ const L = {
   IRCUTMode: ["Mode du filtre infrarouge (IR-CUT)"], IrcutSwap: ["Inverser le filtre infrarouge"], PictureFlip: ["Retourner l'image (haut / bas)"],
   PictureMirror: ["Image miroir (gauche / droite)"], RejectFlicker: ["Anti-scintillement (éclairage 50 Hz)"], WhiteBalance: ["Balance des blancs"],
   // Camera.ParamEx
-  AeMeansure: ["Mesure de l'exposition"], BroadTrends: ["Large dynamique (WDR)"], CorridorMode: ["Mode couloir (image verticale)"], Dis: ["Stabilisation"],
-  ExposureTime: ["Temps d'exposition (ms)"], LightRestrainLevel: ["Atténuation des lumières fortes"], LowLuxMode: ["Mode faible luminosité"],
-  PreventOverExpo: ["Éviter la surexposition"], SoftPhotosensitivecontrol: ["Capteur jour / nuit logiciel"], Style: ["Style d'image"],
+  AeMeansure: ["Mesure de la lumière"], Ldc: ["Correction de la déformation de l'objectif", "Redresse les bords courbés (effet grand angle)"], BroadTrends: ["Large dynamique (WDR)"], CorridorMode: ["Mode couloir (image verticale)"], Dis: ["Stabilisation"],
+  ExposureTime: ["Temps d'exposition (ms)"], LightRestrainLevel: ["Atténuation des lumières fortes", "Phares, lampadaires : 0 = désactivée, plus haut = plus atténué"], LowLuxMode: ["Mode faible luminosité", "Image plus claire dans le noir, un peu plus de bruit"],
+  PreventOverExpo: ["Éviter la surexposition", "Évite les visages « brûlés » par l'infrarouge de près"], SoftPhotosensitivecontrol: ["Détection du jour et de la nuit"], Style: ["Style d'image", "Rendu des couleurs et du contraste"],
+  Covers: ["Zones masquées", "Rectangles noircis sur l'image (confidentialité)"], CoversNum: ["Nombre de zones masquées", "0 = aucune"],
   // couleurs
   Enable: ["Activé"], TimeSection: ["Plage horaire"], VideoColorParam: ["Réglages de couleur"], Acutance: ["Netteté"], Brightness: ["Luminosité", "0 à 100"],
   Contrast: ["Contraste", "0 à 100"], Hue: ["Teinte", "0 à 100"], Saturation: ["Saturation", "0 à 100"], Whitebalance: ["Balance des blancs"],
@@ -62,7 +63,7 @@ const L = {
   GOP: ["Intervalle entre images clés (GOP, en secondes)"], Quality: ["Qualité", "1 (faible) à 6 (meilleure), en VBR"], Resolution: ["Résolution"],
   // OSD
   ChannelTitle: ["Nom de la caméra"], Name: ["Nom"], SerialNo: ["Numéro"], ChannelTitleAttribute: ["Affichage du nom"], TimeTitleAttribute: ["Affichage de l'heure"],
-  EncodeBlend: ["Incrusté dans la vidéo enregistrée"], PreviewBlend: ["Affiché en direct"], FrontColor: ["Couleur du texte"], BackColor: ["Couleur du fond"], RelativePos: ["Position"],
+  EncodeBlend: ["Incrusté dans la vidéo enregistrée"], PreviewBlend: ["Affiché en direct"], FrontColor: ["Couleur du texte"], BackColor: ["Couleur du fond"], RelativePos: ["Position", "En % de l'image, depuis le coin en haut à gauche"],
   // détection et événements
   Region: ["Zones de détection"], EventHandler: ["Actions"], AlarmOutEnable: ["Déclencher la sortie d'alarme"], AlarmOutLatch: ["Durée de la sortie d'alarme (s)"],
   BeepEnable: ["Bip"], EventLatch: ["Délai entre deux alertes (s)"], FTPEnable: ["Envoi FTP"], MailEnable: ["Envoi d'un e-mail"], MessageEnable: ["Envoi au Centre d'alarme / application"],
@@ -105,11 +106,15 @@ const HEX_ENUM = {
 /* Nombres qui sont des choix */
 const NUM_ENUM = {
   IRCUTMode: [[0, "Synchronisé avec les LED infrarouges"], [1, "Automatique (selon la lumière)"]],
+  SoftPhotosensitivecontrol: [[0, "Par le capteur de lumière de la caméra"], [1, "Par l'analyse de l'image (logiciel)"]],
+  AeMeansure: [[0, "Moyenne de toute l'image"], [1, "Priorité au centre de l'image"]],
 };
 /* Temps d'exposition : microsecondes en hexadécimal (0x10000 = 65 536 µs), affichés en millisecondes */
 const US_KEYS = new Set(["LeastTime", "MostTime", "ExposureTime"]);
 /* Nombres 0 / 1 qui sont des interrupteurs */
-const NUM_BOOL = new Set(["AutoGain", "IrcutSwap"]);
+const NUM_BOOL = new Set(["AutoGain", "IrcutSwap", "Ldc", "LowLuxMode", "PreventOverExpo", "CorridorMode", "Dis"]);
+/* Textes qui sont des choix */
+const STR_ENUM = { Style: [["typedefault", "Par défaut"], ["type1", "Style 1"], ["type2", "Style 2"], ["type3", "Style 3"]] };
 // adresses IPv4 codées en hexadécimal, octets à l'envers (0x0A01A8C0 = 192.168.1.10)
 const IP_KEYS = new Set(["HostIP", "Submask", "GateWay", "Address", "SpareAddress", "DnsServer1", "DnsServer2"]);
 
@@ -185,6 +190,15 @@ function scheduleField(key, value, path) {
     <div class="bar"><button type="button" class="btn small" data-allday="1">Tous les jours, 24 h / 24</button><button type="button" class="btn small" data-copymon="1">Copier le lundi sur tous les jours</button></div></div></div>`;
 }
 
+/* Position des textes et des zones masquées : coordonnées sur 8192 (largeur et hauteur de l'image).
+ * Texte : [x, y, …] (les deux derniers nombres sont conservés) ; zone masquée : [gauche, haut, droite, bas]. */
+const POS_MAX = 8192;
+function relPosField(key, value, path) {
+  const rect = /Covers/.test(path);
+  const names = rect ? ["Gauche", "Haut", "Droite", "Bas"] : ["Horizontal", "Vertical"];
+  const inputs = names.map((n, i) => `<label class="pos"><small>${n}</small><input type="number" min="0" max="100" step="0.1" data-i="${i}" value="${Math.round(value[i] / POS_MAX * 1000) / 10}"> %</label>`).join("");
+  return `<div class="row">${labelFor(key, path)}<div class="poss" data-path="${esc(path)}" data-type="relpos" data-orig="${esc(JSON.stringify(value))}">${inputs}</div></div>`;
+}
 const isHex = (v) => typeof v === "string" && /^0x[0-9a-f]{1,8}$/i.test(v);
 let toastT;
 function toast(msg, bad = false) { const t = $("#toast"); t.textContent = msg; t.classList.toggle("bad", bad); t.classList.add("on"); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove("on"), bad ? 7000 : 3500); }
@@ -299,6 +313,12 @@ function field(key, value, path) {
     const opts = NUM_ENUM[key].map(([v, l]) => `<option value="${v}"${v === value ? " selected" : ""}>${esc(l)}</option>`).join("") + (known ? "" : `<option value="${value}" selected>Autre (${value})</option>`);
     return `<div class="row">${labelFor(key, path)}<select id="${esc(id)}" data-path="${esc(path)}" data-type="num">${opts}</select></div>`;
   }
+  if (STR_ENUM[key] && typeof value === "string") {
+    const known = STR_ENUM[key].some(([v]) => v === value);
+    const opts = STR_ENUM[key].map(([v, l]) => `<option value="${esc(v)}"${v === value ? " selected" : ""}>${esc(l)}</option>`).join("") + (known ? "" : `<option value="${esc(value)}" selected>${esc(value)}</option>`);
+    return `<div class="row">${labelFor(key, path)}<select id="${esc(id)}" data-path="${esc(path)}" data-type="str">${opts}</select></div>`;
+  }
+  if (key === "RelativePos" && Array.isArray(value) && value.length === 4 && value.every(Number.isInteger)) return relPosField(key, value, path);
   if (NUM_BOOL.has(key) && (value === 0 || value === 1)) return `<div class="row">${labelFor(key, path)}<span class="sw"><input type="checkbox" id="${esc(id)}" data-path="${esc(path)}" data-type="numbool" ${value ? "checked" : ""}><span></span></span></div>`;
   if (/Mask$/.test(key) && isLongHex(value)) return maskField(key, value, path);
   if (key === "PtzLink" && isPtz(value)) return ptzField(key, value, path);
@@ -360,6 +380,11 @@ function readForm() {
     else if (t === "hexenum") setAt(v, p, "0x" + Number(el.value).toString(16).toUpperCase().padStart(Number(el.dataset.width), "0"));
     else if (t === "us") { const us = Math.round(Number(el.value) * 1000); if (!(us >= 0) || el.value === "") throw new Error(`Temps invalide : ${p.split(".").pop()}`); setAt(v, p, "0x" + us.toString(16).toUpperCase().padStart(Number(el.dataset.width), "0")); }
     else if (t === "numbool") setAt(v, p, el.checked ? 1 : 0);
+    else if (t === "relpos") {
+      const arr = JSON.parse(el.dataset.orig);
+      for (const i of el.querySelectorAll("input[data-i]")) { const pc = Number(i.value); if (i.value === "" || !(pc >= 0 && pc <= 100)) throw new Error("Position invalide (0 à 100 %)"); if (pc !== Number(i.defaultValue)) arr[i.dataset.i] = Math.round(pc / 100 * POS_MAX); }
+      setAt(v, p, arr);
+    }
     else if (t === "mask") {
       let n = BigInt(el.dataset.orig);
       for (const c of el.querySelectorAll("input[data-bit]")) { const bit = 1n << BigInt(c.dataset.bit); n = c.checked ? n | bit : n & ~bit; }

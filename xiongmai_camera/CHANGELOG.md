@@ -1,5 +1,10 @@
 # Changements
 
+## 0.1.0-beta.8
+
+- **Image (avancé)** en clair : interrupteurs (correction de la déformation de l'objectif, mode faible luminosité, éviter la surexposition, mode couloir, stabilisation), listes (mesure de la lumière, détection du jour et de la nuit, style d'image) et explications.
+- **Textes à l'écran** : position en % de l'image (horizontal, vertical) au lieu de `[7521,0,255,24]` ; zones masquées en % (gauche, haut, droite, bas). Une position non modifiée est renvoyée exactement telle quelle.
+
 ## 0.1.0-beta.7
 
 - Les copies d'un réglage pour des canaux que la caméra n'a pas (« Exposition… 2 » à « 16 ») ne sont plus affichées ; elles restent conservées telles quelles.

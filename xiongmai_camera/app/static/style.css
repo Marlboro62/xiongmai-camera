@@ -79,4 +79,7 @@ table.kv td:first-child { color: var(--muted); width: 45%; }
 .row .slot input.hhmm { width: 72px; text-align: center; }
 .btn.small { padding: 3px 10px; font-size: .85rem; }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+.poss { display: flex; gap: 12px; flex-wrap: wrap; }
+.row .poss label.pos { display: flex; flex-direction: row; align-items: center; gap: 6px; }
+.row .poss input { width: 84px; }
 [hidden] { display: none !important; }
