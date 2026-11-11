@@ -1,5 +1,13 @@
 # Changements
 
+## 0.1.0 (première version stable)
+
+Réglage complet des caméras XiongMai / XMEye / NetSurveillance depuis Home Assistant, sans ActiveX ni Internet Explorer.
+
+- **Nouveautés** : tous les réglages en français et en clair, avec info-bulles et exemples ; grille de détection posée sur l'image de la caméra ; plages horaires et heure d'été comme NetSurveillance ; page **Flux et accès** (aperçu, RTSP, ONVIF, HTTP) ; **entités Home Assistant par MQTT** réglées dans la page de l'application ; sauvegarde avant chaque écriture, export, relecture après écriture.
+- **Corrections pendant les bêtas** : interrupteurs qui ne réagissaient pas au clic, heure UTC envoyée à la caméra, rouge et bleu inversés dans les couleurs des textes, accès à Home Assistant (jeton du Supervisor) perdu au démarrage, entités MQTT indisponibles.
+- Testée sur une caméra au firmware V4.02 (2017). Le détail de chaque bêta suit.
+
 ## 0.1.0-beta.23
 
 - Correction : entités MQTT « Indisponible » dans Home Assistant. Leur disponibilité dépendait aussi d'un sujet global absent sur certains brokers ; elle ne dépend plus que du sujet de la caméra (`xiongmai_camera/<caméra>/availability`). Déconnexion propre du broker à l'arrêt.
