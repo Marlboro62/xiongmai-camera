@@ -25,13 +25,14 @@ from urllib.parse import parse_qs, quote, unquote, urlsplit
 from dvrip import DvripClient, DvripError, sofia_hash
 from ha_mqtt import MqttBridge
 
-VERSION = "0.1.0-beta.21"
+VERSION = "0.1.0-beta.22"
 DATA = Path(os.environ.get("XM_DATA", "/data"))
 STATIC = Path(__file__).parent / "static"
 INGRESS_IP = "172.30.32.2"
 NAME_RE = re.compile(r"^[A-Za-z][A-Za-z0-9_.\[\]]{1,80}$")
 STAMP_RE = re.compile(r"^[0-9_-]{19}$")
 KEEP_BACKUPS = 30
+MQTT_FILE = DATA / "mqtt.json"
 MAX_BODY = 2 * 1024 * 1024
 ENTITY_RE = re.compile(r"^camera\.[a-z0-9_]+$")
 SUPERVISOR = "http://supervisor/core/api"
@@ -245,6 +246,8 @@ class App:
     def __init__(self, options: dict[str, Any] | None = None) -> None:
         self.options = options if options is not None else load_options()
         self.cams = Cameras(self.options)
+        self.bridge: MqttBridge | None = None
+        self.bridge_task: asyncio.Task[None] | None = None
         self.routes: list[tuple[str, re.Pattern[str], Callable[[Request], Awaitable[Response]]]] = []
         self.allow_all = os.environ.get("XM_ALLOW_ALL") == "1"
         r = self.route
@@ -259,6 +262,8 @@ class App:
         r("GET", r"/api/(?P<cam>[a-z0-9_]+)/export", self.api_export)
         r("GET", r"/api/(?P<cam>[a-z0-9_]+)/snapshot", self.api_snapshot)
         r("GET", r"/api/(?P<cam>[a-z0-9_]+)/access", self.api_access)
+        r("GET", r"/api/mqtt", self.api_mqtt_get)
+        r("POST", r"/api/mqtt", self.api_mqtt_set)
         r("GET", r"/static/(?P<file>[A-Za-z0-9_.-]+)", self.static)
 
     def route(self, method: str, pattern: str, handler: Callable[[Request], Awaitable[Response]]) -> None:
@@ -434,6 +439,67 @@ class App:
             "dvrip": {"port": cam["port"], "open": client.connected or None},
         })
 
+    # ------------------------------------------------------------ MQTT (réglé dans la page de l'application)
+
+    def mqtt_settings(self) -> dict[str, Any]:
+        """Options MQTT : celles de l'onglet Configuration, remplacées par celles enregistrées dans la page."""
+        keys = ("mqtt", "mqtt_host", "mqtt_port", "mqtt_username", "mqtt_password", "mqtt_tls", "mqtt_tls_insecure")
+        out = {k: self.options.get(k) for k in keys if k in self.options}
+        try:
+            saved = json.loads(MQTT_FILE.read_text(encoding="utf-8"))
+            out.update({k: v for k, v in saved.items() if k in keys})
+        except (OSError, ValueError):
+            pass
+        return out
+
+    def start_bridge(self) -> None:
+        self.bridge = MqttBridge(self.cams.items, self.mqtt_settings(), ha_now)
+        self.bridge_task = asyncio.create_task(self.bridge.run())
+
+    async def restart_bridge(self) -> None:
+        if self.bridge_task:
+            self.bridge_task.cancel()
+        if self.bridge:
+            await self.bridge.stop()
+        self.start_bridge()
+
+    async def api_mqtt_get(self, req: Request) -> Response:
+        st = self.mqtt_settings()
+        return json_response({
+            "enabled": st.get("mqtt") is not False, "host": st.get("mqtt_host") or "", "port": st.get("mqtt_port") or "",
+            "username": st.get("mqtt_username") or "", "has_password": bool(st.get("mqtt_password")),
+            "tls": bool(st.get("mqtt_tls")), "tls_insecure": bool(st.get("mqtt_tls_insecure")),
+            "state": self.bridge.state if self.bridge else {"status": "stopped", "message": "Arrêté."},
+        })
+
+    async def api_mqtt_set(self, req: Request) -> Response:
+        b = req.json()
+        if not isinstance(b, dict):
+            raise HttpError(400, "Réglages manquants")
+        host = str(b.get("host") or "").strip()
+        if host and not re.match(r"^[A-Za-z0-9.\-:\[\]]{1,253}$", host):
+            raise HttpError(400, "Adresse du broker invalide")
+        port = b.get("port")
+        if port not in (None, ""):
+            try:
+                port = int(port)
+            except (TypeError, ValueError):
+                raise HttpError(400, "Port invalide") from None
+            if not 1 <= port <= 65535:
+                raise HttpError(400, "Port invalide")
+        old = self.mqtt_settings()
+        new = {"mqtt": bool(b.get("enabled", True)), "mqtt_host": host, "mqtt_port": port or None,
+               "mqtt_username": str(b.get("username") or "").strip(),
+               # mot de passe vide = garder l'actuel (il n'est jamais renvoyé à la page)
+               "mqtt_password": b["password"] if b.get("password") else ("" if b.get("clear_password") else old.get("mqtt_password") or ""),
+               "mqtt_tls": bool(b.get("tls")), "mqtt_tls_insecure": bool(b.get("tls_insecure"))}
+        MQTT_FILE.parent.mkdir(parents=True, exist_ok=True)
+        MQTT_FILE.write_text(json.dumps(new, ensure_ascii=False), encoding="utf-8")
+        os.chmod(MQTT_FILE, 0o600)
+        _LOGGER.info("MQTT : réglages enregistrés depuis la page (broker %s)", host or "application Mosquitto")
+        await self.restart_bridge()
+        return json_response({"ok": True})
+
     async def api_time(self, req: Request) -> Response:
         """Met la caméra à l'heure de Home Assistant (heure demandée à Home Assistant, heure d'été comprise)."""
         cam = self.cams.get(req.params["cam"])
@@ -541,14 +607,15 @@ class App:
     async def serve(self, host: str = "0.0.0.0", port: int = 8099) -> None:
         server = await asyncio.start_server(self.handle, host, port)
         task = asyncio.create_task(self.keepalive())
-        bridge = asyncio.create_task(MqttBridge(self.cams.items, self.options, ha_now).run())
+        self.start_bridge()
         _LOGGER.info("Caméra XiongMai %s : %d caméra(s), page de réglages sur le port %d", VERSION, len(self.cams.items), port)
         try:
             async with server:
                 await server.serve_forever()
         finally:
             task.cancel()
-            bridge.cancel()
+            if self.bridge_task:
+                self.bridge_task.cancel()
             for cam in self.cams.items.values():
                 await cam["client"].close()
 

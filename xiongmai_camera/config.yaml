@@ -1,5 +1,5 @@
 name: "Caméra XiongMai"
-version: "0.1.0-beta.21"
+version: "0.1.0-beta.22"
 slug: "xiongmai_camera"
 description: "Réglages des caméras IP XiongMai / XMEye sans ActiveX ni Internet Explorer"
 url: "https://github.com/Marlboro62/xiongmai-camera"

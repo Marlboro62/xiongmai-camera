@@ -60,7 +60,7 @@ L'application crée dans Home Assistant un appareil par caméra, par la découve
 Il faut l'intégration **MQTT** dans Home Assistant et un broker :
 
 - l'application **Mosquitto** de Home Assistant est trouvée toute seule, sans rien régler ;
-- un autre broker se règle dans les options : `mqtt_host`, `mqtt_port` (1883, ou 8883 en TLS), `mqtt_username`, `mqtt_password`, `mqtt_tls`, et `mqtt_tls_insecure` pour un certificat auto-signé.
+- un autre broker se règle dans la page **Home Assistant › Entités (MQTT)** de l'application : adresse, port (1883, ou 8883 en TLS), utilisateur, mot de passe, TLS, certificat auto-signé. L'état de la connexion s'y affiche. Les mêmes réglages existent aussi dans l'onglet Configuration (`mqtt_host`, `mqtt_port`, `mqtt_username`, `mqtt_password`, `mqtt_tls`, `mqtt_tls_insecure`) ; ceux de la page sont prioritaires.
 
 ```yaml
 mqtt: true

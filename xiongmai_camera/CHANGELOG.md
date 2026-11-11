@@ -1,5 +1,10 @@
 # Changements
 
+## 0.1.0-beta.22
+
+- Nouvelle page **Home Assistant › Entités (MQTT)** dans le menu de l'application : adresse du broker, port, utilisateur, mot de passe, TLS et certificat auto-signé se règlent dans un formulaire, sans YAML. Bouton **Enregistrer et se connecter**, état de la connexion affiché en direct (connecté, erreur et sa cause, aucun broker).
+- Le mot de passe MQTT reste sur Home Assistant (fichier lisible par l'application seule) et n'est jamais réaffiché.
+
 ## 0.1.0-beta.21
 
 - **Entités Home Assistant par MQTT** : un appareil par caméra, créé automatiquement (découverte MQTT) :

@@ -79,29 +79,47 @@ class MqttBridge:
         self.info: dict[str, dict[str, Any]] = {}
         self.discovered: set[str] = set()
         self.wake = asyncio.Event()
+        # état affiché dans la page MQTT de l'application
+        self.state: dict[str, Any] = {"status": "starting", "message": "Démarrage…", "broker": None, "source": None}
+
+    def _status(self, status: str, message: str, broker: dict[str, Any] | None = None) -> None:
+        self.state.update({"status": status, "message": message})
+        if broker:
+            self.state.update({"broker": f"{broker['host']}:{broker['port']}", "source": broker.get("source")})
 
     def broker(self) -> dict[str, Any] | None:
         o = self.options
         if o.get("mqtt_host"):
             return {"host": o["mqtt_host"], "port": int(o.get("mqtt_port") or (8883 if o.get("mqtt_tls") else 1883)),
                     "username": o.get("mqtt_username") or "", "password": o.get("mqtt_password") or "",
-                    "ssl": bool(o.get("mqtt_tls")), "insecure": bool(o.get("mqtt_tls_insecure"))}
+                    "ssl": bool(o.get("mqtt_tls")), "insecure": bool(o.get("mqtt_tls_insecure")), "source": "manuel"}
         found = supervisor_broker()
         if found:
             return {"host": found["host"], "port": int(found.get("port") or 1883), "username": found.get("username") or "",
-                    "password": found.get("password") or "", "ssl": bool(found.get("ssl")), "insecure": True}
+                    "password": found.get("password") or "", "ssl": bool(found.get("ssl")), "insecure": True, "source": "Mosquitto"}
         return None
+
+    async def stop(self) -> None:
+        if self.client is not None and self.client.connected:
+            try:
+                await self.client.publish(STATUS, "offline", retain=True)
+            except MqttError:
+                pass
+            await self.client.close()
 
     async def run(self) -> None:
         if self.options.get("mqtt") is False:
             _LOGGER.info("MQTT désactivé dans les options")
+            self._status("disabled", "Entités Home Assistant désactivées.")
             return
         delay = 5
         while True:
             broker = await asyncio.to_thread(self.broker)
             if not broker:
                 _LOGGER.info("MQTT : aucun broker (ni application Mosquitto, ni option mqtt_host) : entités Home Assistant désactivées")
+                self._status("no_broker", "Aucun broker : installez l'application Mosquitto, ou indiquez l'adresse de votre broker ci-dessous.")
                 return
+            self._status("connecting", "Connexion en cours…", broker)
             self.client = MqttClient(broker["host"], broker["port"], broker["username"], broker["password"],
                                      client_id="xiongmai_camera", tls=broker["ssl"], tls_insecure=broker["insecure"],
                                      will=(STATUS, "offline"))
@@ -109,6 +127,7 @@ class MqttBridge:
             try:
                 await self.client.connect()
                 _LOGGER.info("MQTT : connecté à %s:%s", broker["host"], broker["port"])
+                self._status("connected", "Connecté : les entités sont dans Home Assistant (Paramètres › Appareils et services › MQTT).", broker)
                 delay = 5
                 await self.client.publish(STATUS, "online", retain=True)
                 await self.client.subscribe(f"{BASE}/+/+/set")
@@ -120,6 +139,7 @@ class MqttBridge:
                     poller.cancel()
             except MqttError as err:
                 _LOGGER.warning("MQTT : %s (nouvel essai dans %d s)", err, delay)
+                self._status("error", f"{str(err)[:1].upper()}{str(err)[1:]} (nouvel essai dans {delay} s).", broker)
             await asyncio.sleep(delay)
             delay = min(delay * 2, 300)
 

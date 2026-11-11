@@ -263,6 +263,7 @@ function nav() {
     items.push(`<div class="grp">${esc(grp)}</div>`);
     for (const [name, title] of list) items.push(`<button data-page="section" data-name="${esc(name)}">${esc(title)}</button>`);
   }
+  items.push(`<div class="grp">Home Assistant</div><button data-page="mqtt">Entités (MQTT)</button>`);
   items.push(`<div class="grp">Avancé</div><button data-page="raw">Éditeur JSON</button>`);
   $("#nav").innerHTML = items.join("");
   mark();
@@ -733,6 +734,53 @@ async function listUntranslated() {
     : `<p class="muted">Tous les réglages ont un nom en français.</p>`;
 }
 
+/* ------------------------------------------------- page « entités (MQTT) » */
+const MQTT_STATE = { connected: ["ok", "Connecté"], connecting: ["", "Connexion…"], starting: ["", "Démarrage…"], error: ["bad", "Erreur"],
+  no_broker: ["bad", "Aucun broker"], disabled: ["", "Désactivé"], stopped: ["", "Arrêté"] };
+let mqttT = null;
+async function pageMqtt() {
+  const m = $("#main");
+  clearTimeout(mqttT);
+  m.innerHTML = `<h2>Entités Home Assistant (MQTT)</h2><p class="muted">Lecture…</p>`;
+  let d;
+  try { d = await api("api/mqtt"); } catch (e) { m.innerHTML = `<h2>Entités Home Assistant (MQTT)</h2><div class="note bad">${esc(e.message)}</div>`; return; }
+  const sw = (id, on) => `<label class="sw"><input type="checkbox" id="${id}" ${on ? "checked" : ""}><span></span></label>`;
+  const row = (label, hint, ctrl, tip = "") => `<div class="row"><label><b>${label}${tip ? `<button type="button" class="info" aria-expanded="false" title="Explication">i</button>` : ""}</b>${hint ? `<small>${hint}</small>` : ""}${tip ? `<span class="tip" hidden>${esc(tip)}</span>` : ""}</label>${ctrl}</div>`;
+  m.innerHTML = `<h2>Entités Home Assistant (MQTT)</h2>
+    <p class="muted">Crée un appareil par caméra dans Home Assistant : détection, sensibilité, mode jour / nuit, miroir, cloud, redémarrage, mise à l'heure. Il faut l'intégration MQTT dans Home Assistant.</p>
+    <div class="note" id="mqst"></div>
+    <form id="mqform" onsubmit="return false"><fieldset><legend>Broker MQTT</legend>
+      ${row("Entités Home Assistant", "", sw("mq-en", d.enabled))}
+      ${row("Adresse du broker", "Vide : application Mosquitto de Home Assistant, trouvée toute seule", `<input type="text" id="mq-host" value="${esc(d.host)}" placeholder="ex. 192.168.1.50" autocomplete="off">`,
+        "Adresse IP ou nom du serveur MQTT. Exemple : l'adresse du conteneur Mosquitto de votre réseau ; laisser vide si Mosquitto est installé comme application dans Home Assistant.")}
+      ${row("Port", "1883 sans TLS, 8883 avec TLS", `<input type="number" id="mq-port" value="${esc(d.port)}" min="1" max="65535" placeholder="1883">`)}
+      ${row("Utilisateur", "", `<input type="text" id="mq-user" value="${esc(d.username)}" autocomplete="off">`)}
+      ${row("Mot de passe", d.has_password ? "Enregistré : laisser vide pour le garder" : "", `<span><input type="password" id="mq-pass" autocomplete="new-password" placeholder="${d.has_password ? "••••••" : ""}">${d.has_password ? ` <label class="chk"><input type="checkbox" id="mq-clear"> effacer</label>` : ""}</span>`)}
+      ${row("TLS (connexion chiffrée)", "", sw("mq-tls", d.tls), "À activer si le broker écoute en TLS, en général sur le port 8883.")}
+      ${row("Accepter un certificat auto-signé", "Réseau local seulement", sw("mq-ins", d.tls_insecure), "Ne vérifie pas le certificat du broker. Exemple : un Mosquitto avec un certificat créé soi-même.")}
+    </fieldset>
+    <div class="bar"><button class="btn primary" id="mq-save">Enregistrer et se connecter</button></div></form>
+    <p class="muted">Ces réglages remplacent ceux de l'onglet Configuration de l'application. Le mot de passe reste sur Home Assistant et n'est jamais réaffiché.</p>`;
+  const showState = (st) => {
+    const [cls, label] = MQTT_STATE[st.status] || ["", st.status];
+    $("#mqst").className = `note ${cls === "bad" ? "bad" : cls === "ok" ? "" : "warn"}`;
+    $("#mqst").innerHTML = `<b>${esc(label)}</b>${st.broker ? ` · ${esc(st.broker)}${st.source === "Mosquitto" ? " (application Mosquitto)" : ""}` : ""}<br><span class="muted">${esc(st.message || "")}</span>`;
+  };
+  showState(d.state);
+  const poll = async () => { if (S.page !== "mqtt") return; try { showState((await api("api/mqtt")).state); } catch (e) { /* ignorer */ } mqttT = setTimeout(poll, 3000); };
+  mqttT = setTimeout(poll, 3000);
+  $("#mqform").addEventListener("click", (ev) => {
+    const b = ev.target.closest("button.info"); if (!b) return;
+    const tip = b.closest("label").querySelector(".tip"); tip.hidden = !tip.hidden; b.classList.toggle("on", !tip.hidden);
+  });
+  $("#mq-save").onclick = async () => {
+    const body = { enabled: $("#mq-en").checked, host: $("#mq-host").value.trim(), port: $("#mq-port").value, username: $("#mq-user").value.trim(),
+      password: $("#mq-pass").value, clear_password: $("#mq-clear")?.checked || false, tls: $("#mq-tls").checked, tls_insecure: $("#mq-ins").checked };
+    try { await api("api/mqtt", { method: "POST", body: JSON.stringify(body) }); toast("Réglages MQTT enregistrés : connexion en cours…"); setTimeout(pageMqtt, 1500); }
+    catch (e) { toast(e.message, true); }
+  };
+}
+
 /* ------------------------------------------------- page « flux et accès » */
 function copyText(text) {
   // l'API presse-papiers n'existe qu'en HTTPS : repli sur une zone de texte temporaire
@@ -811,6 +859,7 @@ function pageRaw() {
 function go(page, name = null) {
   S.page = page; S.name = name; mark();
   if (!S.cam) { $("#main").innerHTML = `<h2>Aucune caméra configurée</h2><div class="note">Ajoutez votre caméra dans l'onglet <b>Configuration</b> de l'application : adresse IP, port (34567), utilisateur et mot de passe. Puis redémarrez l'application.</div>`; return; }
+  if (page === "mqtt") { pageMqtt(); return; }
   if (page === "info") pageInfo(); else if (page === "access") pageAccess(); else if (page === "raw") pageRaw(); else pageSection(name);
 }
 $("#nav").addEventListener("click", (ev) => { const b = ev.target.closest("button[data-page]"); if (b) go(b.dataset.page, b.dataset.name || null); });
