@@ -24,7 +24,7 @@ from urllib.parse import parse_qs, quote, unquote, urlsplit
 
 from dvrip import DvripClient, DvripError
 
-VERSION = "0.1.0-beta.14"
+VERSION = "0.1.0-beta.15"
 DATA = Path(os.environ.get("XM_DATA", "/data"))
 STATIC = Path(__file__).parent / "static"
 INGRESS_IP = "172.30.32.2"
@@ -102,17 +102,25 @@ def core_api(path: str, payload: dict[str, Any] | None = None) -> bytes:
 TIME_RE = re.compile(r"^\d{4}-\d\d-\d\d \d\d:\d\d:\d\d$")
 
 
-async def ha_now() -> str:
+_HA_TIME_WARNED = False
+
+
+async def ha_now() -> tuple[str, bool]:
     """Heure locale de Home Assistant, demandée à Home Assistant lui-même (fuseau et heure d'été compris).
-    Repli : l'heure locale du conteneur."""
+    Renvoie (heure, fiable). Repli : l'heure du conteneur, fiable seulement si le fuseau a été appliqué."""
+    global _HA_TIME_WARNED
     try:
         raw = await asyncio.to_thread(core_api, "/template", {"template": "{{ now().strftime('%Y-%m-%d %H:%M:%S') }}"})
         value = raw.decode().strip()
         if TIME_RE.match(value):
-            return value
-    except (OSError, ValueError) as err:
-        _LOGGER.debug("Heure de Home Assistant illisible : %s", err)
-    return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            return value, True
+        err: Exception | str = f"réponse inattendue {value[:60]!r}"
+    except (OSError, ValueError) as exc:
+        err = exc
+    if not _HA_TIME_WARNED:
+        _HA_TIME_WARNED = True
+        _LOGGER.warning("Heure de Home Assistant illisible (%s) ; jeton Supervisor présent : %s", err, bool(os.environ.get("SUPERVISOR_TOKEN")))
+    return datetime.now().strftime("%Y-%m-%d %H:%M:%S"), time.localtime().tm_gmtoff != 0
 
 
 def use_ha_timezone() -> None:
@@ -249,7 +257,8 @@ class App:
                 now = await cam["client"].get_time()
             except DvripError:
                 now = None
-            return json_response({"info": info, "time": now, "ha_time": await ha_now()})
+            ha_time, reliable = await ha_now()
+            return json_response({"info": info, "time": now, "ha_time": ha_time, "ha_time_ok": reliable})
         except DvripError as err:
             return self._error(err)
 
@@ -345,7 +354,9 @@ class App:
         """Met la caméra à l'heure de Home Assistant (heure demandée à Home Assistant, heure d'été comprise)."""
         cam = self.cams.get(req.params["cam"])
         try:
-            value = await ha_now()
+            value, reliable = await ha_now()
+            if not reliable:
+                raise HttpError(503, "Heure de Home Assistant indisponible (voir le journal de l'application) : la caméra n'a pas été modifiée.")
             ret = await cam["client"].set_time(value)
             _LOGGER.info("%s : mise à l'heure %s", cam["name"], value)
             return json_response({"ok": True, "ret": ret, "time": value})

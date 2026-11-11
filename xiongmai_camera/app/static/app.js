@@ -297,8 +297,8 @@ async function pageInfo() {
     }).join("");
     m.innerHTML = `<h2>Infos et actions</h2><p class="muted">${esc(S.cam.name)} · ${esc(S.cam.host)}:${esc(S.cam.port)}</p>
       <h3>Heure</h3>
-      <table class="kv"><tr><td>Heure de la caméra</td><td>${esc(d.time || "—")}</td></tr><tr><td>Heure de Home Assistant</td><td>${esc(d.ha_time)}</td></tr></table>
-      <div class="bar"><button class="btn primary" id="sync">Mettre la caméra à l'heure de Home Assistant</button></div>
+      <table class="kv"><tr><td>Heure de la caméra</td><td>${esc(d.time || "—")}</td></tr><tr><td>Heure de Home Assistant</td><td>${d.ha_time_ok === false ? `<span class="muted">indisponible (heure UTC du conteneur : ${esc(d.ha_time)})</span>` : esc(d.ha_time)}</td></tr></table>
+      <div class="bar"><button class="btn primary" id="sync"${d.ha_time_ok === false ? " disabled" : ""}>Mettre la caméra à l'heure de Home Assistant</button></div>
       <h3>Actions</h3>
       <div class="bar"><button class="btn" id="export">Exporter toute la configuration (JSON)</button><button class="btn danger" id="reboot">Redémarrer la caméra</button></div>
       <div class="bar"><button class="btn" id="untranslated">Lister les réglages sans nom français</button></div>

@@ -1,5 +1,9 @@
 # Changements
 
+## 0.1.0-beta.15
+
+- Sécurité : si l'heure de Home Assistant ne peut pas être lue, la page l'indique et le bouton **Mettre la caméra à l'heure** est désactivé (au lieu d'envoyer l'heure UTC). La cause est écrite une fois dans le journal de l'application.
+
 ## 0.1.0-beta.14
 
 - Correction : **les interrupteurs ne réagissaient pas au clic** (depuis la première bêta). Ils fonctionnent maintenant partout (réglages, plages horaires).
