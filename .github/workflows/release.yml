@@ -1,0 +1,30 @@
+name: Publication
+
+# Une étiquette vX.Y.Z crée la publication GitHub : notes dans .github/release-notes/vX.Y.Z.md,
+# sinon la section correspondante du journal des changements. Un tiret (-beta) = pré-version.
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Créer la publication
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          VERSION="${TAG#v}"
+          NOTES=".github/release-notes/${TAG}.md"
+          if [ ! -f "$NOTES" ]; then
+            NOTES="$(mktemp)"
+            awk -v v="## ${VERSION}" 'index($0, v) == 1 {on=1; next} /^## / && on {exit} on' xiongmai_camera/CHANGELOG.md > "$NOTES"
+          fi
+          FLAGS=""
+          case "$VERSION" in *-*) FLAGS="--prerelease" ;; esac
+          gh release create "$TAG" --title "Caméra XiongMai ${VERSION}" --notes-file "$NOTES" $FLAGS
