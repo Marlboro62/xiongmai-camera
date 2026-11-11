@@ -102,7 +102,10 @@ class MqttBridge:
     async def stop(self) -> None:
         if self.client is not None and self.client.connected:
             try:
+                for cam_id in self.cams:
+                    await self.client.publish(f"{BASE}/{cam_id}/availability", "offline", retain=True)
                 await self.client.publish(STATUS, "offline", retain=True)
+                await self.client.disconnect()
             except MqttError:
                 pass
             await self.client.close()
@@ -122,7 +125,8 @@ class MqttBridge:
             self._status("connecting", "Connexion en cours…", broker)
             self.client = MqttClient(broker["host"], broker["port"], broker["username"], broker["password"],
                                      client_id="xiongmai_camera", tls=broker["ssl"], tls_insecure=broker["insecure"],
-                                     will=(STATUS, "offline"))
+                                     # dernière volonté : rend les entités indisponibles si l'application s'arrête brutalement
+                                     will=(f"{BASE}/{next(iter(self.cams))}/availability" if len(self.cams) == 1 else STATUS, "offline"))
             self.client.on_message = self.on_message
             try:
                 await self.client.connect()
@@ -153,8 +157,8 @@ class MqttBridge:
             topic = f"{BASE}/{cam_id}/{obj}"
             cfg: dict[str, Any] = {"name": name, "unique_id": f"{BASE}_{cam_id}_{obj}", "object_id": f"{cam_id}_{obj}",
                                    "icon": icon, "device": device, **extra,
-                                   "availability": [{"topic": STATUS}] + ([] if kind == "online" else [{"topic": f"{BASE}/{cam_id}/availability"}]),
-                                   "availability_mode": "all"}
+                                   # une seule source de disponibilité, par caméra (plus robuste qu'un sujet global)
+                                   **({} if kind == "online" else {"availability_topic": f"{BASE}/{cam_id}/availability"})}
             if comp != "button":
                 cfg["state_topic"] = f"{topic}/state"
             if comp in ("switch", "number", "select", "button"):

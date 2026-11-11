@@ -25,7 +25,7 @@ from urllib.parse import parse_qs, quote, unquote, urlsplit
 from dvrip import DvripClient, DvripError, sofia_hash
 from ha_mqtt import MqttBridge
 
-VERSION = "0.1.0-beta.22"
+VERSION = "0.1.0-beta.23"
 DATA = Path(os.environ.get("XM_DATA", "/data"))
 STATIC = Path(__file__).parent / "static"
 INGRESS_IP = "172.30.32.2"

@@ -144,6 +144,13 @@ class MqttClient:
             except (MqttError, OSError):
                 return
 
+    async def disconnect(self) -> None:
+        """Déconnexion propre : le broker n'envoie pas la dernière volonté."""
+        try:
+            await self._write(DISCONNECT, 0, b"")
+        except (MqttError, OSError):
+            pass
+
     async def close(self) -> None:
         if self._writer is not None:
             try:

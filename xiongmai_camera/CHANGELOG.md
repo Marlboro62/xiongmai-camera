@@ -1,5 +1,9 @@
 # Changements
 
+## 0.1.0-beta.23
+
+- Correction : entités MQTT « Indisponible » dans Home Assistant. Leur disponibilité dépendait aussi d'un sujet global absent sur certains brokers ; elle ne dépend plus que du sujet de la caméra (`xiongmai_camera/<caméra>/availability`). Déconnexion propre du broker à l'arrêt.
+
 ## 0.1.0-beta.22
 
 - Nouvelle page **Home Assistant › Entités (MQTT)** dans le menu de l'application : adresse du broker, port, utilisateur, mot de passe, TLS et certificat auto-signé se règlent dans un formulaire, sans YAML. Bouton **Enregistrer et se connecter**, état de la connexion affiché en direct (connecté, erreur et sa cause, aucun broker).

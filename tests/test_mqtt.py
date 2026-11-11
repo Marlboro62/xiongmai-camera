@@ -87,6 +87,8 @@ class MqttTests(unittest.IsolatedAsyncioTestCase):
             cfg = json.loads(broker.published["homeassistant/switch/xiongmai_camera_palier/mirror/config"])
             self.assertEqual(cfg["command_topic"], "xiongmai_camera/palier/mirror/set")
             self.assertEqual(broker.published["xiongmai_camera/status"], "online")
+            self.assertEqual(cfg["availability_topic"], "xiongmai_camera/palier/availability")
+            self.assertEqual(broker.published["xiongmai_camera/palier/availability"], "online")
             self.assertIn("xiongmai_camera/+/+/set", broker.subs)
             self.assertEqual(broker.published["xiongmai_camera/palier/day_night/state"], "Automatique")
             # commande depuis Home Assistant : image miroir
