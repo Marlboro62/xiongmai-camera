@@ -1,5 +1,9 @@
 # Changements
 
+## 0.1.0-beta.6
+
+- Exposition et jour / nuit en clair : **Mode jour / nuit** (Automatique, Toujours en couleur, Toujours en noir et blanc) et **Obturateur lent** (Désactivé, Faible, Moyen, Fort) en liste ; temps d'exposition en millisecondes avec l'équivalent « ≈ 1/25 s » au lieu de `0x10000` ; **Gain automatique** et **Inverser le filtre infrarouge** en interrupteurs.
+
 ## 0.1.0-beta.5
 
 - Actions des alertes en clair :

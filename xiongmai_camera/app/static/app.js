@@ -43,9 +43,9 @@ const RISKY = /^NetWork\.(NetCommon|NetDHCP|NetDNS)$/;
 const L = {
   // Camera.Param
   AeSensitivity: ["Sensibilité de l'exposition automatique", "1 à 10"], ApertureMode: ["Diaphragme automatique"], BLCMode: ["Compensation de contre-jour (BLC)"],
-  DayNightColor: ["Mode jour / nuit", "Couleur, noir et blanc ou automatique selon la caméra"], Day_nfLevel: ["Réduction du bruit le jour", "0 à 5"],
+  DayNightColor: ["Mode jour / nuit"], Day_nfLevel: ["Réduction du bruit le jour", "0 à 5"],
   Night_nfLevel: ["Réduction du bruit la nuit", "0 à 5"], DncThr: ["Seuil de passage jour / nuit"], ElecLevel: ["Niveau électronique de référence", "0 à 100"],
-  EsShutter: ["Obturateur électronique lent"], ExposureParam: ["Exposition"], LeastTime: ["Temps d'exposition minimal"], MostTime: ["Temps d'exposition maximal"],
+  EsShutter: ["Obturateur lent", "Allonge l'exposition la nuit : image plus claire, mais mouvements flous"], ExposureParam: ["Exposition"], LeastTime: ["Temps d'exposition minimal (ms)"], MostTime: ["Temps d'exposition maximal (ms)", "Plus long : image plus claire la nuit, mais mouvements flous"],
   Level: ["Niveau"], GainParam: ["Gain"], AutoGain: ["Gain automatique"], Gain: ["Gain", "0 à 100"],
   IRCUTMode: ["Mode du filtre infrarouge (IR-CUT)"], IrcutSwap: ["Inverser le filtre infrarouge"], PictureFlip: ["Retourner l'image (haut / bas)"],
   PictureMirror: ["Image miroir (gauche / droite)"], RejectFlicker: ["Anti-scintillement (éclairage 50 Hz)"], WhiteBalance: ["Balance des blancs"],
@@ -95,7 +95,16 @@ const SUGGEST = {
   DSTRule: ["On", "Off"], SensorType: ["NO", "NC"], OverWrite: ["OverWrite", "StopRecord"], MonMode: ["TCP", "UDP"], TransferPlan: ["Quality", "Fluency", "AutoAdapt"],
 };
 // réglages « 0x00000000 / 0x00000001 » à présenter comme un interrupteur
-const HEX_BOOL = new Set(["PictureFlip", "PictureMirror", "RejectFlicker", "BLCMode", "ApertureMode", "EsShutter"]);
+const HEX_BOOL = new Set(["PictureFlip", "PictureMirror", "RejectFlicker", "BLCMode", "ApertureMode"]);
+/* Valeurs hexadécimales qui sont en fait des choix (même codage que NetSurveillance et CMS) */
+const HEX_ENUM = {
+  DayNightColor: [[0, "Automatique (couleur le jour, noir et blanc la nuit)"], [1, "Toujours en couleur"], [2, "Toujours en noir et blanc"]],
+  EsShutter: [[0, "Désactivé"], [2, "Faible"], [4, "Moyen"], [6, "Fort"]],
+};
+/* Temps d'exposition : microsecondes en hexadécimal (0x10000 = 65 536 µs), affichés en millisecondes */
+const US_KEYS = new Set(["LeastTime", "MostTime"]);
+/* Nombres 0 / 1 qui sont des interrupteurs */
+const NUM_BOOL = new Set(["AutoGain", "IrcutSwap"]);
 // adresses IPv4 codées en hexadécimal, octets à l'envers (0x0A01A8C0 = 192.168.1.10)
 const IP_KEYS = new Set(["HostIP", "Submask", "GateWay", "Address", "SpareAddress", "DnsServer1", "DnsServer2"]);
 
@@ -237,7 +246,8 @@ async function pageInfo() {
 /* ------------------------------------------------------- formulaires */
 function labelFor(key, path) {
   // même clé, sens différent selon la section
-  const l = key === "Level" && /^Detect\./.test(S.name || "") ? ["Sensibilité", "1 (faible) à 6 (forte)"] : L[key];
+  const l = key === "Level" && /^Detect\./.test(S.name || "") ? ["Sensibilité", "1 (faible) à 6 (forte)"]
+    : key === "Level" && /ExposureParam/.test(path) ? ["Mode d'exposition", "0 = automatique, sinon niveau manuel"] : L[key];
   const title = l ? l[0] : key;
   const hint = l?.[1] ? `<small>${esc(l[1])}</small>` : "";
   return `<label for="f-${esc(path)}"><b>${esc(title)}</b>${hint}<code>${esc(key)}</code></label>`;
@@ -270,6 +280,16 @@ function field(key, value, path) {
   if (typeof value === "boolean") return `<div class="row">${labelFor(key, path)}<span class="sw"><input type="checkbox" id="${esc(id)}" data-path="${esc(path)}" data-type="bool" ${value ? "checked" : ""}><span></span></span></div>`;
   if (HEX_BOOL.has(key) && isHex(value) && parseInt(value, 16) <= 1) return `<div class="row">${labelFor(key, path)}<span class="sw"><input type="checkbox" id="${esc(id)}" data-path="${esc(path)}" data-type="hexbool" ${parseInt(value, 16) ? "checked" : ""}><span></span></span></div>`;
   if (COLOR_KEYS.has(key) && isHex(value)) return colorField(key, value, path, id);
+  if (HEX_ENUM[key] && isHex(value)) {
+    const n = parseInt(value, 16), known = HEX_ENUM[key].some(([v]) => v === n), width = value.length - 2;
+    const opts = HEX_ENUM[key].map(([v, l]) => `<option value="${v}"${v === n ? " selected" : ""}>${esc(l)}</option>`).join("") + (known ? "" : `<option value="${n}" selected>Autre (${esc(value)})</option>`);
+    return `<div class="row">${labelFor(key, path)}<select id="${esc(id)}" data-path="${esc(path)}" data-type="hexenum" data-width="${width}">${opts}</select></div>`;
+  }
+  if (US_KEYS.has(key) && isHex(value)) {
+    const ms = parseInt(value, 16) / 1000, frac = ms > 0 ? ` ≈ 1/${Math.round(1000 / ms)} s` : "";
+    return `<div class="row">${labelFor(key, path)}<span><input type="number" id="${esc(id)}" data-path="${esc(path)}" data-type="us" data-width="${value.length - 2}" value="${ms}" min="0" step="0.001"> <small class="muted">${esc(frac)}</small></span></div>`;
+  }
+  if (NUM_BOOL.has(key) && (value === 0 || value === 1)) return `<div class="row">${labelFor(key, path)}<span class="sw"><input type="checkbox" id="${esc(id)}" data-path="${esc(path)}" data-type="numbool" ${value ? "checked" : ""}><span></span></span></div>`;
   if (/Mask$/.test(key) && isLongHex(value)) return maskField(key, value, path);
   if (key === "PtzLink" && isPtz(value)) return ptzField(key, value, path);
   if (key === "TimeSection" && isSchedule(value)) return scheduleField(key, value, path);
@@ -314,6 +334,9 @@ function readForm() {
     else if (t === "hexbool") setAt(v, p, el.checked ? "0x00000001" : "0x00000000");
     else if (t === "num") { if (el.value === "" || isNaN(Number(el.value))) throw new Error(`Nombre invalide : ${p.split(".").pop()}`); setAt(v, p, Number(el.value)); }
     else if (t === "ip") { const h = ipToHex(el.value.trim()); if (!h) throw new Error(`Adresse IP invalide : ${el.value}`); setAt(v, p, h); }
+    else if (t === "hexenum") setAt(v, p, "0x" + Number(el.value).toString(16).toUpperCase().padStart(Number(el.dataset.width), "0"));
+    else if (t === "us") { const us = Math.round(Number(el.value) * 1000); if (!(us >= 0) || el.value === "") throw new Error(`Temps invalide : ${p.split(".").pop()}`); setAt(v, p, "0x" + us.toString(16).toUpperCase().padStart(Number(el.dataset.width), "0")); }
+    else if (t === "numbool") setAt(v, p, el.checked ? 1 : 0);
     else if (t === "mask") {
       let n = BigInt(el.dataset.orig);
       for (const c of el.querySelectorAll("input[data-bit]")) { const bit = 1n << BigInt(c.dataset.bit); n = c.checked ? n | bit : n & ~bit; }
