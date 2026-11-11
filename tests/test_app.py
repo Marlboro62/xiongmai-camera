@@ -51,6 +51,7 @@ class DvripTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(await c.set_config("Camera.Param", p), 100)
         self.assertEqual((await c.get_config("Camera.Param"))[0]["PictureMirror"], "0x00000001")
         self.assertEqual(await c.set_config("NetWork.NetDNS", await c.get_config("NetWork.NetDNS")), 603)  # redémarrage nécessaire
+        self.assertEqual((await c.snapshot())[:2], b"\xff\xd8")
         await c.set_time("2026-11-11 08:00:00")
         self.assertEqual(await c.get_time(), "2026-11-11 08:00:00")
         await c.close()
@@ -109,6 +110,15 @@ class ApiTests(unittest.IsolatedAsyncioTestCase):
         st, d = await http(self.port, "GET", "/api/palier/export?names=General.General,Inexistant")
         self.assertIn("General.General", d["sections"])
         self.assertIn("Inexistant", d["errors"])
+
+    async def test_detection_grid_and_snapshot(self):
+        st, d = await http(self.port, "GET", "/api/palier/config/Detect.MotionDetect")
+        self.assertEqual(st, 200)
+        self.assertEqual(d["grid"], {"cols": 22, "rows": 18})
+        self.assertEqual(len(d["value"][0]["Region"]), 32)  # comme certains firmwares V4
+        st, img = await http(self.port, "GET", "/api/palier/snapshot")
+        self.assertEqual(st, 200)
+        self.assertEqual(img[:2], b"\xff\xd8")
 
     async def test_guards(self):
         st, _ = await http(self.port, "GET", "/api/inconnue/info")

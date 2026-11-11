@@ -174,13 +174,26 @@ function labelFor(key, path) {
   return `<label for="f-${esc(path)}"><b>${esc(title)}</b>${hint}<code>${esc(key)}</code></label>`;
 }
 
-/** Grille des zones de détection : 18 lignes de 22 cases (un bit par case). */
+/** Grille des zones de détection, posée sur l'image de la caméra : une ligne par entier, un bit par case (bit 0 à gauche).
+ *  Certains firmwares renvoient plus de lignes (32) que la grille n'en a (18) : seules les lignes de la grille sont affichées,
+ *  les autres sont renvoyées telles quelles. */
 function motionGrid(path, rows) {
+  const cols = S.grid?.cols || 22, nrows = Math.min(rows.length, S.grid?.rows || 18);
   const cells = [];
-  rows.forEach((r, y) => { const n = parseInt(r, 16) >>> 0; for (let x = 0; x < 22; x++) cells.push(`<i data-y="${y}" data-x="${x}" class="${n & (1 << x) ? "on" : ""}"></i>`); });
-  return `<div class="row"><label><b>Zones de détection</b><small>Cliquez ou glissez pour activer ou retirer des cases (orange : détecté)</small><code>Region</code></label>
-    <div><div class="grid-md" data-path="${esc(path)}">${cells.join("")}</div>
-    <div class="bar"><button type="button" class="btn" data-grid="all" data-path="${esc(path)}">Tout</button><button type="button" class="btn" data-grid="none" data-path="${esc(path)}">Rien</button></div></div></div>`;
+  rows.slice(0, nrows).forEach((r, y) => { const n = parseInt(r, 16) >>> 0; for (let x = 0; x < cols; x++) cells.push(`<i data-y="${y}" data-x="${x}" class="${n & (1 << x) ? "on" : ""}"></i>`); });
+  return `<div class="row md-row"><label><b>Zones de détection</b><small>Cliquez ou glissez sur l'image pour activer ou retirer des cases (orange : surveillé). Grille de ${cols} × ${nrows} cases.</small><code>Region</code></label>
+    <div><div class="md-wrap"><img class="md-snap" alt="" src="${snapUrl()}"><div class="grid-md" data-path="${esc(path)}" data-cols="${cols}" data-rows="${nrows}" style="--c:${cols};--r:${nrows}">${cells.join("")}</div></div>
+    <p class="muted md-msg" hidden></p>
+    <div class="bar"><button type="button" class="btn" data-grid="all" data-path="${esc(path)}">Tout</button><button type="button" class="btn" data-grid="none" data-path="${esc(path)}">Rien</button>
+      <button type="button" class="btn" data-snap="1">Actualiser l'image</button></div></div></div>`;
+}
+function snapUrl() { return `api/${S.cam.id}/snapshot?t=${Date.now()}`; }
+function wireSnap(form) {
+  for (const img of form.querySelectorAll(".md-snap")) {
+    const wrap = img.parentElement, msg = wrap.parentElement.querySelector(".md-msg");
+    img.onload = () => { wrap.style.aspectRatio = `${img.naturalWidth} / ${img.naturalHeight}`; wrap.classList.add("has-img"); msg.hidden = true; };
+    img.onerror = () => { wrap.classList.remove("has-img"); msg.hidden = false; msg.textContent = "Image de la caméra indisponible : la grille reste utilisable. Voir la documentation (option snapshot_entity)."; };
+  }
 }
 
 function field(key, value, path) {
@@ -232,9 +245,12 @@ function readForm() {
     else setAt(v, p, el.value);
   }
   for (const g of $("#form").querySelectorAll(".grid-md")) {
-    const rows = getAt(v, g.dataset.path).map(() => 0);
-    for (const c of g.querySelectorAll("i.on")) rows[c.dataset.y] |= 1 << c.dataset.x;
-    setAt(v, g.dataset.path, rows.map((n) => "0x" + (n >>> 0).toString(16).toUpperCase().padStart(8, "0")));
+    // on n'efface que les cases affichées : les autres bits et les lignes en plus restent comme la caméra les a donnés
+    const cols = Number(g.dataset.cols), nrows = Number(g.dataset.rows), mask = cols >= 32 ? 0xFFFFFFFF : (2 ** cols) - 1;
+    const rows = getAt(v, g.dataset.path).map((r, y) => (y < nrows ? (parseInt(r, 16) & ~mask) >>> 0 : null));
+    for (const c of g.querySelectorAll("i.on")) rows[c.dataset.y] = (rows[c.dataset.y] | (1 << c.dataset.x)) >>> 0;
+    const orig = getAt(v, g.dataset.path);
+    setAt(v, g.dataset.path, rows.map((n, y) => (n === null ? orig[y] : "0x" + n.toString(16).toUpperCase().padStart(8, "0"))));
   }
   return v;
 }
@@ -245,7 +261,7 @@ async function pageSection(name, preset = null, note = "") {
   m.innerHTML = `<h2>${esc(title)}</h2><p class="muted">${esc(desc)}</p><p class="muted">Lecture…</p>`;
   try {
     const d = await api(`api/${S.cam.id}/config/${encodeURIComponent(name)}`);
-    S.name = name; S.orig = d.value; S.value = preset ?? d.value; S.backups = d.backups || [];
+    S.name = name; S.orig = d.value; S.value = preset ?? d.value; S.backups = d.backups || []; S.grid = d.grid || null;
     const opts = S.backups.map((b) => `<option value="${esc(b)}">${esc(b.replace("_", " à ").replace(/-(\d\d)-(\d\d)$/, " h $1 min $2"))}</option>`).join("");
     m.innerHTML = `<h2>${esc(title)}</h2><p class="muted">${esc(desc)} · <code>${esc(name)}</code></p>
       ${RISKY.test(name) ? `<div class="note warn"><b>Réglage sensible</b> : une erreur d'adresse ou de port peut rendre la caméra injoignable. Notez les valeurs actuelles, ou exportez la configuration avant de modifier.</div>` : ""}
@@ -268,6 +284,8 @@ function wireForm() {
   form.addEventListener("pointerdown", (ev) => { const c = ev.target.closest(".grid-md i"); if (!c) return; painting = !c.classList.contains("on"); c.classList.toggle("on", painting); ev.preventDefault(); });
   form.addEventListener("pointerover", (ev) => { const c = ev.target.closest(".grid-md i"); if (c && painting !== null) c.classList.toggle("on", painting); });
   window.addEventListener("pointerup", () => { painting = null; });
+  wireSnap(form);
+  form.addEventListener("click", (ev) => { const r = ev.target.closest("[data-snap]"); if (r) { const img = r.closest(".row").querySelector(".md-snap"); img.src = snapUrl(); } });
   form.addEventListener("click", (ev) => { const b = ev.target.closest("[data-grid]"); if (!b) return; for (const c of form.querySelectorAll(`.grid-md[data-path="${b.dataset.path}"] i`)) c.classList.toggle("on", b.dataset.grid === "all"); });
   $("#reload").onclick = () => pageSection(S.name);
   $("#defaults").onclick = async () => {

@@ -4,3 +4,5 @@ configuration:
     description: >-
       Une ligne par caméra : name (nom affiché), host (adresse IP), port (34567 par défaut),
       username (admin en général) et password (vide si aucun mot de passe).
+      Facultatif : http_port (port web de la caméra, 80 par défaut) et snapshot_entity
+      (entité caméra de Home Assistant, ex. camera.palier, pour l'image sous la grille de détection).

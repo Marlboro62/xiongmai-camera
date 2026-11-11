@@ -4,3 +4,5 @@ configuration:
     description: >-
       One entry per camera: name (display name), host (IP address), port (34567 by default),
       username (usually admin) and password (empty if none).
+      Optional: http_port (camera web port, 80 by default) and snapshot_entity
+      (Home Assistant camera entity, e.g. camera.porch, for the picture under the motion grid).

@@ -1,5 +1,5 @@
 name: "Caméra XiongMai"
-version: "0.1.0-beta.1"
+version: "0.1.0-beta.2"
 slug: "xiongmai_camera"
 description: "Réglages des caméras IP XiongMai / XMEye sans ActiveX ni Internet Explorer"
 url: "https://github.com/Marlboro62/xiongmai-camera"
@@ -9,6 +9,7 @@ arch:
   - amd64
 init: false
 ingress: true
+homeassistant_api: true
 panel_icon: mdi:cctv
 panel_title: "Caméra XiongMai"
 options:
@@ -20,3 +21,5 @@ schema:
       port: port
       username: str
       password: password
+      http_port: port?
+      snapshot_entity: str?

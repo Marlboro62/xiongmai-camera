@@ -36,6 +36,7 @@ DEFAULT_CONFIG_GET = 1044
 ABILITY_GET = 1360
 SYSMANAGER_REQ = 1450  # OPMachine (redémarrage), OPTimeSetting (heure)
 TIMEQUERY_REQ = 1452
+NET_SNAP_REQ = 1560  # OPSNAP : une image JPEG de la caméra
 
 # Codes de retour du firmware
 RET_MESSAGES = {
@@ -115,7 +116,7 @@ class DvripClient:
         self._seq += 1
         await self._writer.drain()
 
-    async def _recv(self) -> tuple[int, dict[str, Any]]:
+    async def _recv_raw(self) -> tuple[int, bytes]:
         assert self._reader is not None
         head = await asyncio.wait_for(self._reader.readexactly(HEADER.size), self.timeout)
         magic, _version, session, _seq, msg, length = HEADER.unpack(head)
@@ -126,6 +127,10 @@ class DvripClient:
         body = await asyncio.wait_for(self._reader.readexactly(length), self.timeout) if length else b""
         if session:
             self._session = session
+        return msg, body
+
+    async def _recv(self) -> tuple[int, dict[str, Any]]:
+        msg, body = await self._recv_raw()
         text = body.rstrip(b"\x00").rstrip(b"\x0a").rstrip(b"\x00").decode("utf-8", errors="replace").strip()
         if not text:
             return msg, {}
@@ -233,6 +238,37 @@ class DvripClient:
         await self.close()
         if resp and resp.get("Ret") not in OK_CODES:
             raise DvripError(f"Redémarrage : {ret_message(resp.get('Ret'))}", resp.get("Ret"))
+
+    async def snapshot(self, channel: int = 0) -> bytes:
+        """Image JPEG prise par la caméra (OPSNAP). Selon le firmware, une réponse JSON peut précéder l'image."""
+        async with self._lock:
+            for attempt in (1, 2):
+                try:
+                    if not self.connected:
+                        await self.connect()
+                    await self._send(NET_SNAP_REQ, {"Name": "OPSNAP", "OPSNAP": {"Channel": channel}, "SessionID": self._sid()})
+                    for _ in range(3):
+                        _msg, body = await self._recv_raw()
+                        start = body.find(b"\xff\xd8")
+                        if start >= 0:
+                            return body[start:]
+                        text = body.rstrip(b"\x00").rstrip(b"\x0a").rstrip(b"\x00").decode("utf-8", "replace").strip()
+                        try:
+                            ret = json.loads(text).get("Ret") if text else None
+                        except (json.JSONDecodeError, AttributeError):
+                            ret = None
+                        if ret == 105 and attempt == 1:
+                            break
+                        if ret is not None and ret not in OK_CODES:
+                            raise DvripError(f"Image : {ret_message(ret)}", ret)
+                    else:
+                        raise DvripError("La caméra n'a pas renvoyé d'image")
+                    await self.close()  # session perdue : on recommence
+                except (OSError, asyncio.IncompleteReadError, TimeoutError, ConnectionError) as err:
+                    await self.close()
+                    if attempt == 2:
+                        raise DvripError(f"Liaison perdue avec la caméra ({type(err).__name__})") from err
+            raise DvripError("La caméra n'a pas renvoyé d'image")
 
     async def keepalive(self) -> None:
         if self.connected:

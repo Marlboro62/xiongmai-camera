@@ -20,6 +20,8 @@ cameras:
 | `port` | Port DVRIP de la caméra : **34567** par défaut (celui du logiciel CMS, pas le port web 80) |
 | `username` | Utilisateur de la caméra, souvent `admin` |
 | `password` | Mot de passe ; vide si la caméra n'en a pas |
+| `http_port` | Facultatif : port web de la caméra (80 par défaut), pour son image |
+| `snapshot_entity` | Facultatif : entité caméra de Home Assistant (par exemple celle de l'intégration ONVIF, `camera.palier_profile_000`) qui fournit l'image sous la grille de détection |
 
 Plusieurs caméras : ajoutez une ligne par caméra. Redémarrez l'application après chaque changement de configuration.
 
@@ -31,11 +33,15 @@ Ouvrez **Caméra XiongMai** dans la barre latérale.
 - **Une page par section** (Image, Vidéo, Détection, Alarmes, Réseau, Système) : les réglages lus sur la caméra, avec leur nom en français et leur nom d'origine en petit. Modifiez puis cliquez sur **Enregistrer sur la caméra**.
   - Les interrupteurs remplacent les valeurs `0x00000000` / `0x00000001`.
   - Les adresses IP s'affichent en clair (`192.168.1.50`), la caméra les stocke en hexadécimal.
-  - **Zones de détection** : une grille de 22 × 18 cases, à cliquer ou glisser ; boutons **Tout** et **Rien**.
+  - **Zones de détection** : la grille (22 × 18 cases en général) est posée sur l'image actuelle de la caméra ; cliquez ou glissez pour choisir les zones surveillées ; boutons **Tout**, **Rien** et **Actualiser l'image**. L'image vient de `snapshot_entity` si elle est renseignée, sinon de la caméra elle-même (protocole DVRIP, puis page web). Si aucune ne répond, la grille reste utilisable sans image.
 - **Charger les valeurs d'usine** remplit le formulaire avec les valeurs d'usine de la section, sans rien envoyer : il faut ensuite **Enregistrer**.
 - **Éditeur JSON** (Avancé) : lisez et écrivez n'importe quelle section du firmware par son nom (`Record`, `NetWork.NetEmail`, `Uart.Comm`…).
 
 Après certains réglages (réseau surtout), la caméra demande un redémarrage : un message l'indique.
+
+## Heure
+
+L'application prend le fuseau horaire de Home Assistant : la mise à l'heure de la caméra et les journaux sont à l'heure locale.
 
 ## Sauvegardes
 

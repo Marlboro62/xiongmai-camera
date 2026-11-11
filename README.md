@@ -44,7 +44,7 @@ Ces caméras se règlent d'habitude avec l'interface « NetSurveillance WEB », 
 
 - **Image** : mode jour / nuit, filtre infrarouge, exposition, gain, contre-jour, image miroir et retournée, couleurs (luminosité, contraste, saturation…).
 - **Vidéo** : encodage des flux principal et secondaire (codec, résolution, images par seconde, débit), textes à l'écran (nom, heure).
-- **Détection** : détection de mouvement avec **grille des zones** à dessiner, sensibilité et actions ; caméra masquée, perte vidéo.
+- **Détection** : détection de mouvement avec **grille des zones** à dessiner sur l'image de la caméra, sensibilité et actions ; caméra masquée, perte vidéo.
 - **Alarmes** : entrées et sortie d'alarme.
 - **Réseau** : adresse IP (affichée en clair, pas en hexadécimal), DNS, DHCP, NTP, RTSP, **cloud XMEye** (à couper si la caméra n'a pas Internet).
 - **Système** : nom, langue, format de date, heure d'été ; **mise à l'heure** sur celle de Home Assistant ; **redémarrage** (confirmé par un second clic).

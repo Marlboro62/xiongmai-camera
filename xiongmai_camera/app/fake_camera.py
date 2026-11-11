@@ -13,7 +13,8 @@ import sys
 from datetime import datetime
 
 from dvrip import (CONFIG_GET, CONFIG_SET, DEFAULT_CONFIG_GET, HEADER, KEEPALIVE_REQ, LOGIN_REQ, SYSINFO_REQ,
-                   SYSMANAGER_REQ, TIMEQUERY_REQ, ABILITY_GET, sofia_hash)
+                   SYSMANAGER_REQ, TIMEQUERY_REQ, ABILITY_GET, NET_SNAP_REQ, sofia_hash)
+from pathlib import Path
 
 PASSWORDS = {sofia_hash(""), sofia_hash("demo")}
 
@@ -38,7 +39,7 @@ CONFIG = {
                          "MainFormat": {"AudioEnable": False, "Video": {"BitRate": 2048, "BitRateControl": "VBR", "Compression": "H.264", "FPS": 25, "GOP": 2, "Quality": 4, "Resolution": "1080P"}, "VideoEnable": True}}],
     "AVEnc.VideoWidget": [{"ChannelTitle": {"Name": "Entrée", "SerialNo": ""}, "ChannelTitleAttribute": {"BackColor": "0x00000000", "EncodeBlend": True, "FrontColor": "0xF0FFFFFF", "PreviewBlend": True, "RelativePos": [6144, 6144, 0, 0]},
                            "TimeTitleAttribute": {"BackColor": "0x00000000", "EncodeBlend": True, "FrontColor": "0xF0FFFFFF", "PreviewBlend": True, "RelativePos": [6144, 6144, 0, 0]}}],
-    "Detect.MotionDetect": [{"Enable": True, "Level": 3, "Region": ["0x003FFFFF"] * 18,
+    "Detect.MotionDetect": [{"Enable": True, "Level": 3, "Region": ["0x003FFFFF"] * 18 + ["0x00000000"] * 14,
                              "EventHandler": {"AlarmOutEnable": False, "AlarmOutLatch": 10, "BeepEnable": False, "EventLatch": 1, "FTPEnable": False,
                                               "MailEnable": False, "MessageEnable": True, "RecordEnable": True, "RecordLatch": 30, "ShowInfo": False,
                                               "SnapEnable": False, "TimeSection": [["1 00:00:00-24:00:00", "0 00:00:00-00:00:00"]] * 7}}],
@@ -62,6 +63,9 @@ SYSINFO = {"AlarmInChannel": 2, "AlarmOutChannel": 1, "BuildTime": "2017-07-20 0
            "DigChannel": 0, "EncryptVersion": "Unknown", "ExtraChannel": 0, "HardWare": "IPC_EXEMPLE", "HardWareVersion": "Unknown",
            "SerialNo": "0000000000000000", "SoftWareVersion": "V4.02.R11.00000000.10012.000000.00000", "TalkInChannel": 1,
            "TalkOutChannel": 1, "UpdataTime": "", "UpdataType": "0x00000000", "VideoInChannel": 1, "VideoOutChannel": 1}
+
+
+SNAPSHOT = Path(__file__).parent / "static" / "demo-snapshot.jpg"  # image fictive
 
 
 async def handle(reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
@@ -94,8 +98,15 @@ async def handle(reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> 
                     resp = {"Name": name, "Ret": 603 if name.startswith("NetWork.") else 100}
             elif msg == SYSINFO_REQ:
                 resp = {"Name": "SystemInfo", "SystemInfo": SYSINFO, "Ret": 100}
+            elif msg == ABILITY_GET and name == "MotionArea":
+                resp = {"Name": name, name: {"GridColumn": 22, "GridRow": 18}, "Ret": 100}
             elif msg == ABILITY_GET:
                 resp = {"Name": name, name: {"EncodeFunction": {"DoubleStream": True}}, "Ret": 100}
+            elif msg == NET_SNAP_REQ:
+                jpeg = SNAPSHOT.read_bytes()
+                writer.write(HEADER.pack(0xFF, 1, session, seq, msg + 1, len(jpeg)) + jpeg)
+                await writer.drain()
+                continue
             elif msg == TIMEQUERY_REQ:
                 resp = {"Name": "OPTimeQuery", "OPTimeQuery": state["time"], "Ret": 100}
             elif msg == SYSMANAGER_REQ and name == "OPTimeSetting":

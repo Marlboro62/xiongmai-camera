@@ -2,7 +2,7 @@
 
 Bibliothèque standard de Python seulement : rien à installer dans l'image.
 Options lues dans /data/options.json :
-    cameras: [{name, host, port, username, password}]
+    cameras: [{name, host, port, username, password, http_port?, snapshot_entity?}]
 Sauvegardes avant chaque modification : /data/backups/<caméra>/<section>/<date>.json
 """
 from __future__ import annotations
@@ -13,15 +13,18 @@ import logging
 import mimetypes
 import os
 import re
+import time
+import unicodedata
+import urllib.request
 from datetime import datetime
 from http import HTTPStatus
 from pathlib import Path
 from typing import Any, Awaitable, Callable
-from urllib.parse import parse_qs, unquote, urlsplit
+from urllib.parse import parse_qs, quote, unquote, urlsplit
 
 from dvrip import DvripClient, DvripError
 
-VERSION = "0.1.0-beta.1"
+VERSION = "0.1.0-beta.2"
 DATA = Path(os.environ.get("XM_DATA", "/data"))
 STATIC = Path(__file__).parent / "static"
 INGRESS_IP = "172.30.32.2"
@@ -29,6 +32,8 @@ NAME_RE = re.compile(r"^[A-Za-z][A-Za-z0-9_.\[\]]{1,80}$")
 STAMP_RE = re.compile(r"^[0-9_-]{19}$")
 KEEP_BACKUPS = 30
 MAX_BODY = 2 * 1024 * 1024
+ENTITY_RE = re.compile(r"^camera\.[a-z0-9_]+$")
+SUPERVISOR = "http://supervisor/core/api"
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 _LOGGER = logging.getLogger("xiongmai")
@@ -42,7 +47,8 @@ def load_options() -> dict[str, Any]:
 
 
 def slug(text: str) -> str:
-    return re.sub(r"[^a-z0-9]+", "_", text.lower()).strip("_") or "camera"
+    plain = unicodedata.normalize("NFKD", text).encode("ascii", "ignore").decode()  # « Entrée » → « entree »
+    return re.sub(r"[^a-z0-9]+", "_", plain.lower()).strip("_") or "camera"
 
 
 class HttpError(Exception):
@@ -73,6 +79,35 @@ def json_response(data: Any, status: int = 200, headers: dict[str, str] | None =
     return Response(json.dumps(data, ensure_ascii=False, indent=indent), status, headers=headers)
 
 
+def http_get(url: str, headers: dict[str, str] | None = None, timeout: float = 6) -> bytes:
+    req = urllib.request.Request(url, headers=headers or {})
+    with urllib.request.urlopen(req, timeout=timeout) as resp:  # noqa: S310 - adresses fixées par la configuration
+        return resp.read(8 * 1024 * 1024)
+
+
+def core_api(path: str) -> bytes:
+    """Appel à l'API de Home Assistant par le Supervisor (homeassistant_api)."""
+    token = os.environ.get("SUPERVISOR_TOKEN")
+    if not token:
+        raise OSError("API de Home Assistant indisponible")
+    return http_get(f"{SUPERVISOR}{path}", {"Authorization": f"Bearer {token}"})
+
+
+def use_ha_timezone() -> None:
+    """Le conteneur démarre en UTC : on prend le fuseau de Home Assistant (heure des journaux et mise à l'heure)."""
+    if os.environ.get("TZ"):
+        return
+    try:
+        tz = json.loads(core_api("/config")).get("time_zone")
+    except (OSError, ValueError) as err:
+        _LOGGER.warning("Fuseau horaire de Home Assistant illisible (%s) : heure UTC", err)
+        return
+    if tz and Path("/usr/share/zoneinfo", tz).exists():
+        os.environ["TZ"] = tz
+        time.tzset()
+        _LOGGER.info("Fuseau horaire : %s", tz)
+
+
 # ---------------------------------------------------------------- caméras
 
 class Cameras:
@@ -85,8 +120,11 @@ class Cameras:
             while key in self.items:
                 key += "_2"
             port = int(cam.get("port") or 34567)
+            entity = (cam.get("snapshot_entity") or "").strip()
             self.items[key] = {
                 "id": key, "name": cam.get("name") or cam["host"], "host": cam["host"], "port": port,
+                "http_port": int(cam.get("http_port") or 80), "username": cam.get("username") or "admin",
+                "password": cam.get("password") or "", "snapshot_entity": entity if ENTITY_RE.match(entity) else "",
                 "client": DvripClient(cam["host"], port, cam.get("username") or "admin", cam.get("password") or ""),
             }
 
@@ -135,6 +173,7 @@ class App:
         r("POST", r"/api/(?P<cam>[a-z0-9_]+)/time", self.api_time)
         r("POST", r"/api/(?P<cam>[a-z0-9_]+)/reboot", self.api_reboot)
         r("GET", r"/api/(?P<cam>[a-z0-9_]+)/export", self.api_export)
+        r("GET", r"/api/(?P<cam>[a-z0-9_]+)/snapshot", self.api_snapshot)
         r("GET", r"/static/(?P<file>[A-Za-z0-9_.-]+)", self.static)
 
     def route(self, method: str, pattern: str, handler: Callable[[Request], Awaitable[Response]]) -> None:
@@ -190,7 +229,10 @@ class App:
         try:
             client: DvripClient = cam["client"]
             value = await (client.get_default(name) if req.query.get("default") == "1" else client.get_config(name))
-            return json_response({"name": name, "value": value, "backups": list_backups(cam["id"], name)})
+            data = {"name": name, "value": value, "backups": list_backups(cam["id"], name)}
+            if name.startswith("Detect."):
+                data["grid"] = await self._grid(client)
+            return json_response(data)
         except DvripError as err:
             return self._error(err)
 
@@ -217,6 +259,40 @@ class App:
         if not path.is_file():
             raise HttpError(404, "Sauvegarde introuvable")
         return json_response({"name": name, "stamp": stamp, "value": json.loads(path.read_text(encoding="utf-8"))})
+
+    @staticmethod
+    async def _grid(client: DvripClient) -> dict[str, int]:
+        """Taille de la grille de détection annoncée par la caméra (22 × 18 par défaut)."""
+        try:
+            area = await client.ability("MotionArea") or {}
+            cols, rows = int(area.get("GridColumn") or 22), int(area.get("GridRow") or 18)
+            if 1 <= cols <= 32 and 1 <= rows <= 64:
+                return {"cols": cols, "rows": rows}
+        except (DvripError, TypeError, ValueError, AttributeError):
+            pass
+        return {"cols": 22, "rows": 18}
+
+    async def api_snapshot(self, req: Request) -> Response:
+        """Image actuelle de la caméra : entité caméra de HA si configurée, sinon la caméra elle-même (DVRIP puis HTTP)."""
+        cam = self.cams.get(req.params["cam"])
+        errors = []
+        sources: list[tuple[str, Callable[[], Awaitable[bytes]]]] = []
+        if cam["snapshot_entity"]:
+            sources.append(("Home Assistant", lambda: asyncio.to_thread(core_api, f"/camera_proxy/{cam['snapshot_entity']}")))
+        sources.append(("DVRIP", cam["client"].snapshot))
+        url = (f"http://{cam['host']}:{cam['http_port']}/webcapture.jpg?command=snap&channel=1"
+               f"&user={quote(cam['username'])}&password={quote(cam['password'])}")
+        sources.append(("HTTP", lambda: asyncio.to_thread(http_get, url)))
+        for label, fetch in sources:
+            try:
+                data = await asyncio.wait_for(fetch(), 12)
+                if data[:2] == b"\xff\xd8":
+                    return Response(data, 200, "image/jpeg", {"Cache-Control": "no-store"})
+                errors.append(f"{label} : pas une image")
+            except (DvripError, OSError, TimeoutError, ValueError) as err:
+                errors.append(f"{label} : {err}")
+        _LOGGER.info("%s : image indisponible (%s)", cam["name"], " ; ".join(errors))
+        return json_response({"error": "Image indisponible", "details": errors}, 502)
 
     async def api_time(self, req: Request) -> Response:
         """Met la caméra à l'heure de Home Assistant (heure locale du conteneur, variable TZ)."""
@@ -334,4 +410,5 @@ class App:
 
 
 if __name__ == "__main__":
+    use_ha_timezone()
     asyncio.run(App().serve(port=int(os.environ.get("XM_PORT", "8099"))))
