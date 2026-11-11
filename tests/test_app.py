@@ -74,6 +74,10 @@ class ApiTests(unittest.IsolatedAsyncioTestCase):
         import importlib
         import server
         importlib.reload(server)
+
+        async def fake_ha_now():  # pas de Home Assistant pendant les tests
+            return "2026-11-11 08:00:00", True
+        server.ha_now = fake_ha_now
         self.cam = await asyncio.start_server(fake_camera.handle, "127.0.0.1", 0)
         cam_port = self.cam.sockets[0].getsockname()[1]
         self.app = server.App({"cameras": [{"name": "Palier", "host": "127.0.0.1", "port": cam_port, "username": "admin", "password": "demo"}]})
