@@ -1,5 +1,9 @@
 # Changements
 
+## 0.1.0-beta.17
+
+- Correction : l'application ne recevait pas son accès à Home Assistant (jeton du Supervisor), car l'image de base la lance par s6-overlay sans transmettre cette variable. Elle la relit maintenant là où s6 la range : l'heure de Home Assistant, le fuseau horaire et l'option `snapshot_entity` fonctionnent.
+
 ## 0.1.0-beta.16
 
 - **Couleurs** : plus de titres en double (« Couleurs › Couleurs › Couleurs 1 ») ; les deux réglages s'appellent « Réglage selon l'heure 1 / 2 », et leur plage horaire s'affiche « de 00:00 à 24:00 » avec un interrupteur au lieu de `0 00:00:00-24:00:00`.

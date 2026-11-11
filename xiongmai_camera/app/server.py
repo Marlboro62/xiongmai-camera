@@ -24,7 +24,7 @@ from urllib.parse import parse_qs, quote, unquote, urlsplit
 
 from dvrip import DvripClient, DvripError
 
-VERSION = "0.1.0-beta.16"
+VERSION = "0.1.0-beta.17"
 DATA = Path(os.environ.get("XM_DATA", "/data"))
 STATIC = Path(__file__).parent / "static"
 INGRESS_IP = "172.30.32.2"
@@ -121,6 +121,24 @@ async def ha_now() -> tuple[str, bool]:
         _HA_TIME_WARNED = True
         _LOGGER.warning("Heure de Home Assistant illisible (%s) ; jeton Supervisor présent : %s", err, bool(os.environ.get("SUPERVISOR_TOKEN")))
     return datetime.now().strftime("%Y-%m-%d %H:%M:%S"), time.localtime().tm_gmtoff != 0
+
+
+def load_container_env() -> None:
+    """L'image de base de Home Assistant lance l'application par s6-overlay, qui ne transmet pas toutes les
+    variables du conteneur (SUPERVISOR_TOKEN, TZ) : on les relit dans le dossier où s6 les range."""
+    for folder in (Path("/run/s6/container_environment"), Path("/var/run/s6/container_environment")):
+        if not folder.is_dir():
+            continue
+        for name in ("SUPERVISOR_TOKEN", "HASSIO_TOKEN", "TZ"):
+            f = folder / name
+            if not os.environ.get(name) and f.is_file():
+                try:
+                    os.environ[name] = f.read_text(encoding="utf-8").strip()
+                except OSError:
+                    pass
+        break
+    if not os.environ.get("SUPERVISOR_TOKEN") and os.environ.get("HASSIO_TOKEN"):
+        os.environ["SUPERVISOR_TOKEN"] = os.environ["HASSIO_TOKEN"]
 
 
 def use_ha_timezone() -> None:
@@ -468,5 +486,6 @@ class App:
 
 
 if __name__ == "__main__":
+    load_container_env()
     use_ha_timezone()
     asyncio.run(App().serve(port=int(os.environ.get("XM_PORT", "8099"))))
