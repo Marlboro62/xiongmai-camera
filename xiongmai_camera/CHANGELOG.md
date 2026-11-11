@@ -1,5 +1,9 @@
 # Changements
 
+## 0.1.1
+
+- Nouveau logo et nouvelle icône, signature « par Marlboro62 » dans l'en-tête de la page (lien vers le dépôt).
+
 ## 0.1.0 (première version stable)
 
 Réglage complet des caméras XiongMai / XMEye / NetSurveillance depuis Home Assistant, sans ActiveX ni Internet Explorer.

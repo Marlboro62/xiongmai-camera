@@ -100,4 +100,6 @@ a.btn { color: var(--text); text-decoration: none; }
 .badge { display: inline-block; margin-left: 6px; padding: 1px 8px; border-radius: 999px; font-size: .75rem; font-weight: 600; background: var(--surface); color: var(--muted); vertical-align: 1px; }
 .badge.ok { background: color-mix(in srgb, var(--ok) 22%, transparent); color: var(--ok); }
 .badge.bad { background: color-mix(in srgb, var(--bad) 22%, transparent); color: var(--bad); }
+a.sig { color: var(--warn); font-weight: 600; text-decoration: none; }
+a.sig:hover { text-decoration: underline; }
 [hidden] { display: none !important; }
