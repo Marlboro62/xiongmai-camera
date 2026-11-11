@@ -51,7 +51,7 @@ const L = {
   PictureMirror: ["Image miroir (gauche / droite)"], RejectFlicker: ["Anti-scintillement (éclairage 50 Hz)"], WhiteBalance: ["Balance des blancs"],
   // Camera.ParamEx
   AeMeansure: ["Mesure de l'exposition"], BroadTrends: ["Large dynamique (WDR)"], CorridorMode: ["Mode couloir (image verticale)"], Dis: ["Stabilisation"],
-  ExposureTime: ["Temps d'exposition"], LightRestrainLevel: ["Atténuation des lumières fortes"], LowLuxMode: ["Mode faible luminosité"],
+  ExposureTime: ["Temps d'exposition (ms)"], LightRestrainLevel: ["Atténuation des lumières fortes"], LowLuxMode: ["Mode faible luminosité"],
   PreventOverExpo: ["Éviter la surexposition"], SoftPhotosensitivecontrol: ["Capteur jour / nuit logiciel"], Style: ["Style d'image"],
   // couleurs
   Enable: ["Activé"], TimeSection: ["Plage horaire"], VideoColorParam: ["Réglages de couleur"], Acutance: ["Netteté"], Brightness: ["Luminosité", "0 à 100"],
@@ -100,9 +100,14 @@ const HEX_BOOL = new Set(["PictureFlip", "PictureMirror", "RejectFlicker", "BLCM
 const HEX_ENUM = {
   DayNightColor: [[0, "Automatique (couleur le jour, noir et blanc la nuit)"], [1, "Toujours en couleur"], [2, "Toujours en noir et blanc"]],
   EsShutter: [[0, "Désactivé"], [2, "Faible"], [4, "Moyen"], [6, "Fort"]],
+  WhiteBalance: [[0, "Automatique"], [1, "Intérieur"], [2, "Extérieur"]],
+};
+/* Nombres qui sont des choix */
+const NUM_ENUM = {
+  IRCUTMode: [[0, "Synchronisé avec les LED infrarouges"], [1, "Automatique (selon la lumière)"]],
 };
 /* Temps d'exposition : microsecondes en hexadécimal (0x10000 = 65 536 µs), affichés en millisecondes */
-const US_KEYS = new Set(["LeastTime", "MostTime"]);
+const US_KEYS = new Set(["LeastTime", "MostTime", "ExposureTime"]);
 /* Nombres 0 / 1 qui sont des interrupteurs */
 const NUM_BOOL = new Set(["AutoGain", "IrcutSwap"]);
 // adresses IPv4 codées en hexadécimal, octets à l'envers (0x0A01A8C0 = 192.168.1.10)
@@ -289,6 +294,11 @@ function field(key, value, path) {
     const ms = parseInt(value, 16) / 1000, frac = ms > 0 ? ` ≈ 1/${Math.round(1000 / ms)} s` : "";
     return `<div class="row">${labelFor(key, path)}<span><input type="number" id="${esc(id)}" data-path="${esc(path)}" data-type="us" data-width="${value.length - 2}" value="${ms}" min="0" step="0.001"> <small class="muted">${esc(frac)}</small></span></div>`;
   }
+  if (NUM_ENUM[key] && typeof value === "number") {
+    const known = NUM_ENUM[key].some(([v]) => v === value);
+    const opts = NUM_ENUM[key].map(([v, l]) => `<option value="${v}"${v === value ? " selected" : ""}>${esc(l)}</option>`).join("") + (known ? "" : `<option value="${value}" selected>Autre (${value})</option>`);
+    return `<div class="row">${labelFor(key, path)}<select id="${esc(id)}" data-path="${esc(path)}" data-type="num">${opts}</select></div>`;
+  }
   if (NUM_BOOL.has(key) && (value === 0 || value === 1)) return `<div class="row">${labelFor(key, path)}<span class="sw"><input type="checkbox" id="${esc(id)}" data-path="${esc(path)}" data-type="numbool" ${value ? "checked" : ""}><span></span></span></div>`;
   if (/Mask$/.test(key) && isLongHex(value)) return maskField(key, value, path);
   if (key === "PtzLink" && isPtz(value)) return ptzField(key, value, path);
@@ -307,11 +317,24 @@ function field(key, value, path) {
   return group(key, value, path);
 }
 
+function sectionChannels(name) {
+  const i = S.sys?.[S.cam?.id] || {};
+  const n = Number(name === "Alarm.AlarmIn" ? i.AlarmInChannel : name === "Alarm.AlarmOut" ? i.AlarmOutChannel : i.VideoInChannel);
+  return n >= 1 ? n : 64;  // inconnu : tout afficher
+}
+
 function group(key, value, path, open = false) {
   const title = L[key]?.[0] || key;
   if (Array.isArray(value)) {
-    const inner = value.map((v, i) => (v && typeof v === "object" ? group(`${title} ${value.length > 1 ? i + 1 : ""}`.trim(), v, `${path}.${i}`, value.length === 1) : field(String(i), v, `${path}.${i}`))).join("");
-    return `<details ${open || value.length <= 2 ? "open" : ""}><summary>${esc(title)}</summary>${inner}</details>`;
+    // le firmware renvoie souvent une copie par canal possible (jusqu'à 16) : on n'affiche que les canaux réels
+    let list = value, hidden = 0;
+    if (path === "v" && value.length > 1 && value.every((x) => x && typeof x === "object")) {
+      const n = sectionChannels(S.name);
+      if (value.length > n) { list = value.slice(0, n); hidden = value.length - n; }
+    }
+    const inner = list.map((v, i) => (v && typeof v === "object" ? group(`${title} ${list.length > 1 ? i + 1 : ""}`.trim(), v, `${path}.${i}`, list.length === 1) : field(String(i), v, `${path}.${i}`))).join("");
+    const note = hidden ? `<p class="muted">${hidden} copie(s) pour des canaux que cette caméra n'a pas : non affichées, conservées telles quelles.</p>` : "";
+    return `<details ${open || list.length <= 2 ? "open" : ""}><summary>${esc(title)}</summary>${inner}${note}</details>`;
   }
   const rows = Object.entries(value).map(([k, v]) => field(k, v, `${path}.${k}`)).join("");
   return `<fieldset><legend>${esc(title)}</legend>${rows}</fieldset>`;

@@ -29,7 +29,7 @@ CONFIG = {
                       "Day_nfLevel": 3, "DncThr": 30, "ElecLevel": 50, "EsShutter": "0x00000000",
                       "ExposureParam": {"LeastTime": "0x00000100", "Level": 0, "MostTime": "0x00010000"},
                       "GainParam": {"AutoGain": 1, "Gain": 50}, "IRCUTMode": 0, "IrcutSwap": 0, "Night_nfLevel": 3,
-                      "PictureFlip": "0x00000000", "PictureMirror": "0x00000000", "RejectFlicker": "0x00000000", "WhiteBalance": "0x00000000"}],
+                      "PictureFlip": "0x00000000", "PictureMirror": "0x00000000", "RejectFlicker": "0x00000000", "WhiteBalance": "0x00000000"}] * 16,
     "Camera.ParamEx": [{"AeMeansure": 0, "BroadTrends": {"AutoGain": 0, "Gain": 50}, "CorridorMode": 0, "Dis": 0,
                         "ExposureTime": "0x100", "LightRestrainLevel": 16, "LowLuxMode": 0, "PreventOverExpo": 0,
                         "SoftPhotosensitivecontrol": 0, "Style": "type1"}],
