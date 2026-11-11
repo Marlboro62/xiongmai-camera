@@ -86,4 +86,9 @@ table.kv td:first-child { color: var(--muted); width: 45%; }
 .dst > div { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
 .row .dst select { width: auto; }
 .row .dst input.d-year { width: 90px; }
+button.info { display: inline-grid; place-items: center; width: 18px; height: 18px; margin-left: 6px; padding: 0; border-radius: 50%; border: 1px solid var(--accent);
+  background: none; color: var(--accent); font: 600 11px/1 Georgia, serif; font-style: italic; cursor: pointer; vertical-align: 1px; }
+button.info:hover, button.info.on { background: var(--accent); color: #fff; }
+.tip { display: block; margin: 6px 0 4px; padding: 8px 10px; border-radius: 8px; background: color-mix(in srgb, var(--accent) 14%, var(--surface));
+  border-left: 3px solid var(--accent); color: var(--text); font-size: .82rem; font-weight: 400; line-height: 1.45; max-width: 460px; }
 [hidden] { display: none !important; }

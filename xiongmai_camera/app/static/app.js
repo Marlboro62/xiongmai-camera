@@ -322,13 +322,121 @@ async function pageInfo() {
 }
 
 /* ------------------------------------------------------- formulaires */
+/* Info-bulles : à quoi sert le réglage, et un exemple concret */
+const TIPS = {
+  // Image
+  AeSensitivity: "Vitesse à laquelle la caméra corrige la luminosité quand la lumière change. Exemple : 8 si un lampadaire s'allume et que l'image reste trop sombre plusieurs secondes ; 3 pour éviter que l'image « pompe » au passage des phares.",
+  ApertureMode: "Laisse la caméra ouvrir ou fermer son diaphragme selon la lumière (objectifs à diaphragme réglable). Exemple : laisser activé ; sans effet sur la plupart des petites caméras à objectif fixe.",
+  BLCMode: "Compensation de contre-jour : éclaircit le sujet quand le fond est très lumineux. Exemple : une personne devant une porte vitrée ensoleillée apparaît en silhouette noire ; activer la rend visible, mais le fond devient blanc.",
+  DayNightColor: "Choix couleur / noir et blanc. Exemple : « Automatique » pour une caméra avec infrarouge ; « Toujours en couleur » sous un éclairage permanent la nuit (le filtre infrarouge reste en place).",
+  Day_nfLevel: "Réduction du bruit (grain) le jour. Exemple : 3 par défaut ; plus haut l'image est plus lisse mais les détails fins (plaques, visages lointains) deviennent flous.",
+  Night_nfLevel: "Réduction du bruit (grain) la nuit, quand l'image est sombre. Exemple : 4 ou 5 pour une image de nuit moins « neigeuse », au prix de mouvements un peu flous.",
+  DncThr: "Seuil de luminosité pour passer en mode nuit. Exemple : plus haut, la caméra passe en noir et blanc plus tôt le soir ; plus bas, elle reste en couleur plus longtemps.",
+  ElecLevel: "Luminosité visée par l'exposition automatique. Exemple : 50 par défaut ; 60 pour une image globalement plus claire, 40 si le mur blanc est « brûlé ».",
+  EsShutter: "Obturateur lent : la caméra garde l'image plus longtemps exposée quand il fait sombre. Exemple : « Faible » pour une image de nuit plus claire ; « Désactivé » si les personnes qui passent laissent une traînée floue.",
+  LeastTime: "Temps de pose le plus court autorisé. Exemple : laisser la valeur d'usine ; le baisser n'aide que face à une lumière très forte.",
+  MostTime: "Temps de pose le plus long autorisé. Exemple : 40 ms (≈ 1/25 s) garde des mouvements nets la nuit ; 65 ms ou plus éclaircit mais rend flou une personne qui marche.",
+  AutoGain: "Amplification automatique du signal dans le noir. Exemple : laisser activé ; désactivé, l'image de nuit sera beaucoup plus sombre.",
+  Gain: "Niveau d'amplification maximal. Exemple : 50 par défaut ; plus haut l'image de nuit est plus claire mais plus granuleuse.",
+  IRCUTMode: "Moment où le filtre infrarouge bascule. Exemple : « Synchronisé avec les LED infrarouges » évite une image rose au crépuscule.",
+  IrcutSwap: "Inverse le sens du filtre infrarouge. Exemple : à activer seulement si l'image est rose le jour et grise la nuit (filtre monté à l'envers).",
+  PictureFlip: "Retourne l'image haut / bas. Exemple : caméra fixée au plafond, tête en bas.",
+  PictureMirror: "Inverse gauche et droite. Exemple : pour qu'une porte à gauche dans la réalité apparaisse à gauche à l'écran.",
+  RejectFlicker: "Supprime les bandes qui défilent sous les néons et LED en 50 Hz (France). Exemple : à activer si des barres horizontales traversent l'image en intérieur.",
+  WhiteBalance: "Correction de la teinte selon la lumière. Exemple : « Automatique » convient presque toujours ; « Intérieur » si l'image est trop orange sous des ampoules chaudes.",
+  AeMeansure: "Zone de l'image utilisée pour régler la luminosité. Exemple : « Priorité au centre » si une porte au centre est trop sombre à cause d'un ciel clair en haut.",
+  CorridorMode: "Image tournée d'un quart de tour (format vertical). Exemple : un couloir ou un escalier, plus haut que large.",
+  Dis: "Stabilisation numérique de l'image. Exemple : caméra sur un mât qui bouge avec le vent (recadre légèrement l'image).",
+  ExposureTime: "Temps de pose en mode manuel. Exemple : laisser la valeur d'usine tant que le mode d'exposition est automatique (0).",
+  LightRestrainLevel: "Atténue les fortes sources de lumière. Exemple : 16 à 32 pour que les phares d'une voiture n'éblouissent pas tout l'écran la nuit ; 0 pour désactiver.",
+  LowLuxMode: "Image plus claire quand il fait très sombre. Exemple : allée sans éclairage, en complément de l'infrarouge ; un peu plus de grain.",
+  PreventOverExpo: "Évite que l'infrarouge « brûle » ce qui est tout près. Exemple : un visage à 50 cm qui apparaît tout blanc la nuit.",
+  SoftPhotosensitivecontrol: "Comment la caméra décide qu'il fait nuit. Exemple : « Par l'analyse de l'image » si la caméra bascule mal (capteur de lumière caché ou éclairé par un lampadaire).",
+  Style: "Préréglage de rendu des couleurs et du contraste. Exemple : essayer « Style 1 » puis « Style 2 » et garder celui qui vous plaît.",
+  Ldc: "Corrige l'effet « fish-eye » des objectifs grand angle (lignes droites courbées au bord). Exemple : un encadrement de porte qui paraît bombé.",
+  LDCValue: "Force de la correction de déformation. Exemple : augmenter jusqu'à ce que les bords de l'image paraissent droits.",
+  AutomaticAdjustment: "Réglages automatiques de l'image par la caméra. Exemple : laisser la valeur d'usine.",
+  BroadTrends: "Plage dynamique étendue (WDR) : équilibre zones très sombres et très claires. Exemple : une entrée sombre avec une rue ensoleillée derrière.",
+  // Couleurs
+  Brightness: "Luminosité générale. Exemple : 50 par défaut ; 55 à 60 si l'image paraît terne.",
+  Contrast: "Écart entre zones claires et sombres. Exemple : 50 par défaut ; plus haut l'image « claque » plus mais perd des détails dans les ombres.",
+  Saturation: "Intensité des couleurs. Exemple : 50 par défaut ; 40 si la végétation paraît fluo.",
+  Hue: "Teinte générale. Exemple : laisser à 50 ; changer seulement si toute l'image tire vers le vert ou le violet.",
+  Acutance: "Netteté (accentuation des contours). Exemple : 15 par défaut ; trop haut, des halos apparaissent autour des objets.",
+  Whitebalance: "Réglage fin de la balance des blancs pour ce créneau horaire. Exemple : laisser la valeur d'usine.",
+  // Vidéo
+  Compression: "Format de compression vidéo. Exemple : H.264, compris partout (Home Assistant, navigateurs) ; H.265 divise le poids par deux environ mais tous les lecteurs ne le lisent pas.",
+  Resolution: "Taille de l'image. Exemple : 1080P pour le flux principal (enregistrement), D1 ou CIF pour le flux secondaire (affichage sur téléphone).",
+  FPS: "Images par seconde. Exemple : 15 suffit pour la surveillance et allège le réseau ; 25 pour des mouvements plus fluides.",
+  BitRate: "Débit en kbit/s. Exemple : 2048 pour du 1080P à 15 images/s ; plus haut, meilleure image mais fichiers plus lourds.",
+  BitRateControl: "Débit constant ou variable. Exemple : « Variable (VBR) » économise de la place quand rien ne bouge.",
+  GOP: "Intervalle entre deux images complètes, en secondes. Exemple : 2 par défaut ; plus court, la lecture démarre plus vite mais le débit augmente.",
+  Quality: "Qualité visée en débit variable (1 à 6). Exemple : 4 par défaut ; 6 pour la meilleure image.",
+  AudioEnable: "Ajoute le son du micro au flux vidéo. Exemple : seulement si la caméra a un micro et que c'est permis (enregistrer des conversations peut être interdit).",
+  VideoEnable: "Active ce flux vidéo. Exemple : garder le flux secondaire activé pour l'affichage dans Home Assistant.",
+  // Textes à l'écran
+  EncodeBlend: "Incruste le texte dans la vidéo enregistrée. Exemple : utile pour garder la date et l'heure sur un extrait exporté.",
+  PreviewBlend: "Affiche le texte dans l'image en direct.",
+  FrontColor: "Couleur du texte. Exemple : blanc avec un fond noir pour rester lisible sur un mur clair.",
+  BackColor: "Couleur du fond derrière le texte. Exemple : « Transparent » pour ne pas masquer l'image.",
+  RelativePos: "Position du texte, en % depuis le coin en haut à gauche. Exemple : horizontal 0 et vertical 0 pour le coin en haut à gauche ; horizontal 80 pour le placer à droite.",
+  Covers: "Zones masquées en noir sur l'image et les enregistrements. Exemple : cacher la fenêtre ou le jardin d'un voisin (protection de la vie privée).",
+  CoversNum: "Nombre de zones masquées actives. Exemple : 1 pour utiliser seulement la première zone de la liste.",
+  // Détection et actions
+  Region: "Cases de l'image où un mouvement déclenche l'alerte. Exemple : colorier le palier et l'escalier, laisser vides la rue et les arbres qui bougent avec le vent.",
+  EventLatch: "Délai minimal entre deux alertes. Exemple : 10 s pour ne pas recevoir dix notifications pour la même personne.",
+  RecordEnable: "Enregistre sur la carte SD de la caméra lors d'une alerte. Exemple : inutile si un autre système enregistre déjà en continu.",
+  RecordLatch: "Durée d'enregistrement après la fin du mouvement. Exemple : 30 s pour voir où la personne est partie.",
+  SnapEnable: "Prend une photo lors d'une alerte (carte SD, FTP ou e-mail).",
+  SnapInterval: "Intervalle entre deux photos d'une même alerte. Exemple : 2 s.",
+  MessageEnable: "Envoie l'alerte au « Centre d'alarme » ou à l'application XMEye. Exemple : nécessaire pour qu'un service local reçoive les alertes de mouvement.",
+  MsgtoNetEnable: "Envoie l'alerte aux logiciels connectés en réseau (CMS).",
+  MailEnable: "Envoie un e-mail à chaque alerte (serveur e-mail à régler dans la caméra).",
+  FTPEnable: "Dépose photos ou vidéos sur un serveur FTP à chaque alerte. Exemple : un NAS du réseau local.",
+  BeepEnable: "Fait biper l'appareil (surtout les enregistreurs).",
+  ShowInfo: "Affiche un message à l'écran de l'enregistreur.",
+  AlarmOutEnable: "Active la sortie d'alarme (relais) lors d'une alerte. Exemple : déclencher une sirène ou un éclairage branché sur la caméra.",
+  AlarmOutLatch: "Durée d'activation de la sortie d'alarme. Exemple : 10 s pour une sirène.",
+  PtzEnable: "Déplace une caméra motorisée lors d'une alerte. Sans effet sur une caméra fixe.",
+  TimeSection: "Jours et heures où ce réglage s'applique. Exemple : détection active seulement de 22:00 à 07:00 en semaine.",
+  Level: "Sensibilité de la détection. Exemple : 4 ; trop haut, la nuit, les insectes devant l'infrarouge déclenchent des alertes.",
+  SensorType: "Type du contact branché sur l'entrée d'alarme. Exemple : « Normalement ouvert » pour un contact de porte qui se ferme à l'ouverture.",
+  AlarmOutType: "Mode de la sortie d'alarme : automatique (suit les alertes), ou forcée.",
+  AlarmOutStatus: "État de la sortie d'alarme en mode forcé.",
+  // Réseau
+  HostIP: "Adresse IP de la caméra. Attention : une adresse fausse rend la caméra injoignable. Exemple : une adresse fixe hors de la plage DHCP de la box.",
+  Submask: "Masque du réseau. Exemple : 255.255.255.0 sur la plupart des réseaux domestiques.",
+  GateWay: "Passerelle : l'adresse de la box ou du routeur.",
+  TCPPort: "Port du protocole de la caméra (34567 par défaut), utilisé par cette application, CMS et XMEye. Ne pas changer sans raison.",
+  HttpPort: "Port de la page web de la caméra (80 par défaut).",
+  UDPPort: "Port UDP de la caméra (34568 par défaut).",
+  TCPMaxConn: "Nombre maximal de connexions simultanées. Exemple : 10 ; à augmenter si plusieurs logiciels lisent la caméra en même temps.",
+  TransferPlan: "Ce que la caméra privilégie quand le réseau est lent : qualité ou fluidité.",
+  MonMode: "Transport des flux vers les logiciels de visualisation. Exemple : TCP, plus fiable.",
+  NatEnable: "Connexion au cloud du fabricant (XMEye). Exemple : désactiver si vous n'utilisez pas l'application XMEye, la caméra n'envoie plus rien vers Internet.",
+  MTU: "Taille maximale des paquets réseau. Ne pas changer sans raison.",
+  UpdatePeriod: "Fréquence de mise à l'heure par NTP, en minutes. Exemple : 60.",
+  TimeZone: "Fuseau horaire de la caméra. Exemple : GMT+1 pour la France (l'heure d'été se règle dans « Langue, date et heure d'été »).",
+  // Système
+  DSTRule: "Passage automatique à l'heure d'été et d'hiver. Exemple : activé en France.",
+  DSTStart: "Début de l'heure d'été. Exemple en France : le dernier dimanche de mars à 2 h.",
+  DSTEnd: "Fin de l'heure d'été. Exemple en France : le dernier dimanche d'octobre à 3 h.",
+  VideoFormat: "Standard vidéo. Exemple : PAL en Europe (25 images/s), NTSC en Amérique.",
+  MachineName: "Nom de l'appareil, affiché dans CMS et XMEye. Exemple : « Entrée ».",
+  AutoLogout: "Déconnexion automatique de l'interface web après inactivité, en minutes. Exemple : 0 pour ne jamais déconnecter.",
+  OverWrite: "Ce qui se passe quand la carte SD est pleine. Exemple : « Écraser les plus anciens » pour enregistrer en continu.",
+  WorkDay: "Jours de travail utilisés par les plannings de l'enregistreur. Sans effet sur la caméra elle-même.",
+};
+
 function labelFor(key, path) {
   // même clé, sens différent selon la section
   const l = key === "Level" && /^Detect\./.test(S.name || "") ? ["Sensibilité", "1 (faible) à 6 (forte)"]
     : key === "Level" && /ExposureParam/.test(path) ? ["Mode d'exposition", "0 = automatique, sinon niveau manuel"] : L[key];
   const title = l ? l[0] : key;
   const hint = l?.[1] ? `<small>${esc(l[1])}</small>` : "";
-  return `<label for="f-${esc(path)}"><b>${esc(title)}</b>${hint}<code>${esc(key)}</code></label>`;
+  const tip = key === "Level" && /ExposureParam/.test(path) ? "" : TIPS[key];
+  const info = tip ? `<button type="button" class="info" aria-expanded="false" aria-label="Explication : ${esc(title)}" title="Explication">i</button>` : "";
+  return `<label for="f-${esc(path)}"><b>${esc(title)}${info}</b>${hint}${tip ? `<span class="tip" hidden>${esc(tip)}</span>` : ""}<code>${esc(key)}</code></label>`;
 }
 
 /** Grille des zones de détection, posée sur l'image de la caméra : une ligne par entier, un bit par case (bit 0 à gauche).
@@ -543,6 +651,13 @@ function wireForm() {
   form.addEventListener("pointerover", (ev) => { const c = ev.target.closest(".grid-md i"); if (c && painting !== null) c.classList.toggle("on", painting); });
   window.addEventListener("pointerup", () => { painting = null; });
   wireSnap(form);
+  // info-bulles : un clic ouvre ou ferme l'explication (fonctionne aussi au doigt)
+  form.addEventListener("click", (ev) => {
+    const b = ev.target.closest("button.info"); if (!b) return;
+    ev.preventDefault(); ev.stopPropagation();
+    const tip = b.closest("label").querySelector(".tip"), open = tip.hidden;
+    tip.hidden = !open; b.setAttribute("aria-expanded", String(open)); b.classList.toggle("on", open);
+  }, true);
   form.addEventListener("change", (ev) => {
     const m = ev.target.closest(".d-mode"); if (!m) return;
     const box = m.closest(".dst"); box.querySelector(".d-week").hidden = m.value !== "1"; box.querySelector(".d-date").hidden = m.value === "1";

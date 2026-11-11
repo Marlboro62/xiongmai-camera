@@ -1,5 +1,9 @@
 # Changements
 
+## 0.1.0-beta.19
+
+- **Info-bulles** : un bouton **i** à côté de près de 100 réglages (image, couleurs, vidéo, textes, détection, réseau, système) explique à quoi sert le réglage, avec un exemple concret. Un clic ouvre ou ferme l'explication, aussi au doigt sur téléphone.
+
 ## 0.1.0-beta.18
 
 - Correction : couleurs des textes à l'écran, le rouge et le bleu étaient inversés (ainsi que jaune / cyan et orange). L'ordre est maintenant vérifié sur une vraie caméra.
