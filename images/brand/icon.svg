@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#1b3352"/><stop offset="1" stop-color="#0d1624"/>
+    </linearGradient>
+    <linearGradient id="body" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#f4f8fc"/><stop offset="1" stop-color="#c9d6e4"/>
+    </linearGradient>
+    <radialGradient id="lens" cx="0.4" cy="0.35" r="0.7">
+      <stop offset="0" stop-color="#7fd0ff"/><stop offset="0.45" stop-color="#1d93e3"/><stop offset="1" stop-color="#0a2a4a"/>
+    </radialGradient>
+  </defs>
+  <rect width="256" height="256" rx="56" fill="url(#bg)"/>
+  <!-- support mural -->
+  <rect x="34" y="62" width="22" height="78" rx="8" fill="#8fa0b8"/>
+  <path d="M50 101 L84 101 L96 118 L84 128 L50 118 Z" fill="#8fa0b8"/>
+  <!-- corps de la caméra, incliné vers le bas -->
+  <g transform="rotate(14 140 108)">
+    <rect x="76" y="76" width="134" height="62" rx="18" fill="url(#body)"/>
+    <rect x="88" y="66" width="128" height="16" rx="8" fill="#e7eef6"/>
+    <rect x="196" y="82" width="20" height="50" rx="8" fill="#0d1624"/>
+    <circle cx="196" cy="107" r="21" fill="#0d1624"/>
+    <circle cx="196" cy="107" r="15" fill="url(#lens)"/>
+    <circle cx="190" cy="101" r="4.5" fill="#ffffff" opacity="0.85"/>
+    <circle cx="100" cy="94" r="4" fill="#ee4a4a"/>
+  </g>
+  <!-- roue crantée : réglages -->
+  <g transform="translate(186 196) scale(0.9)">
+    <circle r="40" fill="#0d1624"/>
+    <g fill="#f0a33a">
+      <path d="M-6 -33 h12 l3 9 a24 24 0 0 1 8 4.5 l9 -2.5 6 10.4 -6.6 6.8 a24 24 0 0 1 0 9.6 l6.6 6.8 -6 10.4 -9 -2.5 a24 24 0 0 1 -8 4.5 l-3 9 h-12 l-3 -9 a24 24 0 0 1 -8 -4.5 l-9 2.5 -6 -10.4 6.6 -6.8 a24 24 0 0 1 0 -9.6 l-6.6 -6.8 6 -10.4 9 2.5 a24 24 0 0 1 8 -4.5 z"/>
+    </g>
+    <circle r="10" fill="#0d1624"/>
+  </g>
+</svg>

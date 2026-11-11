@@ -26,6 +26,8 @@
   ></a>
 </div>
 
+<p align="center"><img src="https://raw.githubusercontent.com/Marlboro62/xiongmai-camera/main/xiongmai_camera/logo.png" alt="Caméra XiongMai" width="400"></p>
+
 # Caméra XiongMai pour Home Assistant
 
 [![Ajouter le dépôt à Home Assistant](https://my.home-assistant.io/badges/supervisor_add_addon_repository.svg)](https://my.home-assistant.io/redirect/supervisor_add_addon_repository/?repository_url=https%3A%2F%2Fgithub.com%2FMarlboro62%2Fxiongmai-camera)
