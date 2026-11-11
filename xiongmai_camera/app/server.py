@@ -24,7 +24,7 @@ from urllib.parse import parse_qs, quote, unquote, urlsplit
 
 from dvrip import DvripClient, DvripError
 
-VERSION = "0.1.0-beta.9"
+VERSION = "0.1.0-beta.10"
 DATA = Path(os.environ.get("XM_DATA", "/data"))
 STATIC = Path(__file__).parent / "static"
 INGRESS_IP = "172.30.32.2"

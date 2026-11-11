@@ -1,5 +1,9 @@
 # Changements
 
+## 0.1.0-beta.10
+
+- Nouveaux noms en français : intervalle entre deux photos, nombre de canaux et type d'appareil (à ne pas modifier), autres fonctions, numéro de série réseau, adresses IPv6 ; explication de la sortie vidéo.
+
 ## 0.1.0-beta.9
 
 - Nouveaux noms en français : réglage automatique de l'image, force de la correction de déformation, texte de l'alerte, envoi au logiciel CMS, message multimédia (MMS), message vocal (type, intervalle), serveurs DNS du cloud.

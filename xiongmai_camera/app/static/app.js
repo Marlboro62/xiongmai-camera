@@ -53,6 +53,10 @@ const L = {
   AutomaticAdjustment: ["Réglage automatique de l'image"], LDCValue: ["Force de la correction de déformation", "Utilisée quand la correction de la déformation est activée"],
   AlarmInfo: ["Texte de l'alerte", "Texte joint au message envoyé"], MsgtoNetEnable: ["Envoi au logiciel CMS (réseau)"], MultimediaMsgEnable: ["Message multimédia (MMS)"],
   DnsServer1: ["Serveur DNS du cloud 1"], DnsServer2: ["Serveur DNS du cloud 2"], IranCalendar: ["Calendrier iranien"], ChannelName: ["Nom de la caméra"],
+  SnapInterval: ["Intervalle entre deux photos (s)", "0 = réglage par défaut"],
+  ChannelNum: ["Nombre de canaux", "Information de la caméra : ne pas modifier"], DeviceType: ["Type d'appareil", "Information de la caméra : ne pas modifier"],
+  OtherFunction: ["Autres fonctions", "Réservé au fabricant : laisser vide"], SN: ["Numéro de série (réseau)", "Ne le publiez pas"],
+  pAddr: ["Adresse IPv6"], pGateway: ["Passerelle IPv6"], pLocalLinkAddr: ["Adresse IPv6 locale (lien)"], IPv6: ["IPv6"], Ipv6: ["IPv6"],
   VoiceTipInterval: ["Intervalle entre deux messages vocaux (s)"], VoiceType: ["Type de message vocal"],
   AeMeansure: ["Mesure de la lumière"], Ldc: ["Correction de la déformation de l'objectif", "Redresse les bords courbés (effet grand angle)"], BroadTrends: ["Large dynamique (WDR)"], CorridorMode: ["Mode couloir (image verticale)"], Dis: ["Stabilisation"],
   ExposureTime: ["Temps d'exposition (ms)"], LightRestrainLevel: ["Atténuation des lumières fortes", "Phares, lampadaires : 0 = désactivée, plus haut = plus atténué"], LowLuxMode: ["Mode faible luminosité", "Image plus claire dans le noir, un peu plus de bruit"],
@@ -89,7 +93,7 @@ const L = {
   // système
   AutoLogout: ["Déconnexion automatique (minutes, 0 : jamais)"], FontSize: ["Taille du texte"], IranCalendarEnable: ["Calendrier iranien"], LocalNo: ["Numéro de l'appareil"],
   MachineName: ["Nom de l'appareil"], OverWrite: ["Quand le disque est plein"], ScreenAutoShutdown: ["Extinction de l'écran"], ScreenSaveTime: ["Écran de veille"],
-  VideoOutPut: ["Sortie vidéo"], DSTEnd: ["Fin de l'heure d'été"], DSTStart: ["Début de l'heure d'été"], DSTRule: ["Heure d'été"], DateFormat: ["Format de la date"],
+  VideoOutPut: ["Sortie vidéo", "Sortie écran des enregistreurs : laisser sur Auto"], DSTEnd: ["Fin de l'heure d'été"], DSTStart: ["Début de l'heure d'été"], DSTRule: ["Heure d'été"], DateFormat: ["Format de la date"],
   DateSeparator: ["Séparateur de date"], Language: ["Langue"], TimeFormat: ["Format de l'heure (12 ou 24)"], VideoFormat: ["Standard vidéo", "PAL en Europe"],
   WorkDay: ["Jours ouvrés"], Day: ["Jour"], Hour: ["Heure"], Minute: ["Minute"], Month: ["Mois"], Week: ["Semaine"], Year: ["Année"],
 };
