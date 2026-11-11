@@ -1,5 +1,10 @@
 # Changements
 
+## 0.1.0-beta.11
+
+- Page **Infos et actions** en clair : entrées audio, sorties vidéo, caméras IP et mode combiné (enregistreurs), dernière mise à jour du firmware (« Jamais »), mise à jour en attente (« Aucune ») ; « Unknown » devient « Non renseigné ».
+- Numéro de série masqué par défaut (bouton **Afficher**), pour ne pas le publier par erreur sur une capture.
+
 ## 0.1.0-beta.10
 
 - Nouveaux noms en français : intervalle entre deux photos, nombre de canaux et type d'appareil (à ne pas modifier), autres fonctions, numéro de série réseau, adresses IPv6 ; explication de la sortie vidéo.

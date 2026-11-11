@@ -236,16 +236,27 @@ function sectionMeta(name) { for (const [, list] of SECTIONS) for (const s of li
 /* ------------------------------------------------------- page « infos » */
 const INFO_L = { HardWare: "Matériel", SoftWareVersion: "Version du firmware", BuildTime: "Date du firmware", SerialNo: "Numéro de série", VideoInChannel: "Entrées vidéo",
   AlarmInChannel: "Entrées d'alarme", AlarmOutChannel: "Sorties d'alarme", ExtraChannel: "Canaux supplémentaires", TalkInChannel: "Audio entrant", TalkOutChannel: "Audio sortant",
-  DeviceRunTime: "Temps de fonctionnement", HardWareVersion: "Version du matériel", EncryptVersion: "Version de chiffrement" };
+  DeviceRunTime: "Temps de fonctionnement", HardWareVersion: "Version du matériel", EncryptVersion: "Version de chiffrement",
+  AudioInChannel: "Entrées audio", CombineSwitch: "Mode combiné (enregistreurs)", DigChannel: "Caméras IP (enregistreurs)", UpdataTime: "Dernière mise à jour du firmware",
+  UpdataType: "Mise à jour en attente", VideoOutChannel: "Sorties vidéo" };
+/** Valeurs de la page Infos en clair */
+function infoValue(k, v) {
+  if (v === "Unknown" || v === "") return k === "UpdataTime" ? "Jamais" : "Non renseigné";
+  if (k === "DeviceRunTime" && isHex(v)) { const min = parseInt(v, 16); return `${Math.floor(min / 1440)} j ${Math.floor(min % 1440 / 60)} h ${min % 60} min`; }
+  if (k === "UpdataType" && isHex(v)) return parseInt(v, 16) ? `Oui (${v})` : "Aucune";
+  if (k === "CombineSwitch") return v ? "Activé" : "Désactivé";
+  return v;
+}
 async function pageInfo() {
   const m = $("#main");
   m.innerHTML = `<h2>Infos et actions</h2><p class="muted">${esc(S.cam?.name || "")} · ${esc(S.cam?.host || "")}:${esc(S.cam?.port || "")}</p><p class="muted">Lecture…</p>`;
   try {
     const d = await api(`api/${S.cam.id}/info`);
     const rows = Object.entries(d.info).map(([k, v]) => {
-      let val = v;
-      if (k === "DeviceRunTime" && isHex(v)) { const min = parseInt(v, 16); val = `${Math.floor(min / 1440)} j ${Math.floor(min % 1440 / 60)} h ${min % 60} min`; }
-      return `<tr><td>${esc(INFO_L[k] || k)}</td><td>${k === "SerialNo" ? `<span title="Ne le publiez pas">${esc(val)}</span>` : esc(val)}</td></tr>`;
+      const val = infoValue(k, v);
+      // numéro de série masqué par défaut (à ne pas publier sur une capture)
+      const cell = k === "SerialNo" ? `<button type="button" class="btn small" data-reveal="${esc(val)}">Afficher (à ne pas publier)</button>` : esc(val);
+      return `<tr><td>${esc(INFO_L[k] || k)}</td><td>${cell}</td></tr>`;
     }).join("");
     m.innerHTML = `<h2>Infos et actions</h2><p class="muted">${esc(S.cam.name)} · ${esc(S.cam.host)}:${esc(S.cam.port)}</p>
       <h3>Heure</h3>
@@ -259,6 +270,7 @@ async function pageInfo() {
       <h3>Système</h3><table class="kv">${rows}</table>`;
     $("#sync").onclick = async () => { try { const r = await api(`api/${S.cam.id}/time`, { method: "POST" }); toast(`Caméra mise à l'heure : ${r.time}`); pageInfo(); } catch (e) { toast(e.message, true); } };
     $("#untranslated").onclick = listUntranslated;
+    for (const b of m.querySelectorAll("[data-reveal]")) b.onclick = () => { b.replaceWith(document.createTextNode(b.dataset.reveal)); };
     $("#export").onclick = () => { const names = SECTIONS.flatMap(([, l]) => l.map((s) => s[0])).join(","); window.location.href = `api/${S.cam.id}/export?names=${encodeURIComponent(names)}`; };
     let armed = null;
     $("#reboot").onclick = async (ev) => {
