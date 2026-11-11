@@ -23,7 +23,7 @@ CONFIG = {
                         "OverWrite": "OverWrite", "ScreenAutoShutdown": 10, "ScreenSaveTime": 0, "VideoOutPut": "Auto"},
     "General.Location": {"DSTEnd": {"Day": 0, "Hour": 3, "Minute": 0, "Month": 10, "Week": 5, "Year": 2027},
                          "DSTRule": "On", "DSTStart": {"Day": 0, "Hour": 2, "Minute": 0, "Month": 3, "Week": 5, "Year": 2027},
-                         "DateFormat": "DDMMYY", "DateSeparator": "/", "Language": "English", "TimeFormat": "24",
+                         "DateFormat": "DDMMYY", "DateSeparator": "/", "IranCalendar": 0, "Language": "English", "TimeFormat": "24",
                          "VideoFormat": "PAL", "WorkDay": 62},
     "Camera.Param": [{"AeSensitivity": 5, "ApertureMode": "0x00000001", "BLCMode": "0x00000000", "DayNightColor": "0x00000000",
                       "Day_nfLevel": 3, "DncThr": 30, "ElecLevel": 50, "EsShutter": "0x00000000",
@@ -68,6 +68,7 @@ SYSINFO = {"AlarmInChannel": 2, "AlarmOutChannel": 1, "BuildTime": "2017-07-20 0
            "TalkOutChannel": 1, "UpdataTime": "", "UpdataType": "0x00000000", "VideoInChannel": 1, "VideoOutChannel": 1}
 
 
+LANGS = ["English", "SimpChinese", "French", "German"]
 SNAPSHOT = Path(__file__).parent / "static" / "demo-snapshot.jpg"  # image fictive
 
 
@@ -97,12 +98,15 @@ async def handle(reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> 
                 if name not in CONFIG:
                     resp = {"Name": name, "Ret": 607}
                 else:
-                    CONFIG[name] = data.get(name)
+                    new = data.get(name)
+                    if name == "General.Location" and new.get("Language") not in LANGS:  # comme une vraie caméra : ignoré sans erreur
+                        new["Language"] = CONFIG[name]["Language"]
+                    CONFIG[name] = new
                     resp = {"Name": name, "Ret": 603 if name.startswith("NetWork.") else 100}
             elif msg == SYSINFO_REQ:
                 resp = {"Name": "SystemInfo", "SystemInfo": SYSINFO, "Ret": 100}
             elif msg == ABILITY_GET and name == "MultiLanguage":
-                resp = {"Name": name, name: ["English", "SimpChinese", "French", "German"], "Ret": 100}
+                resp = {"Name": name, name: LANGS + ["Hungarian"], "Ret": 100}
             elif msg == ABILITY_GET and name == "MotionArea":
                 resp = {"Name": name, name: {"GridColumn": 22, "GridRow": 18}, "Ret": 100}
             elif msg == ABILITY_GET:

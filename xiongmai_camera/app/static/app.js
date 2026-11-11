@@ -200,7 +200,7 @@ function scheduleField(key, value, path) {
     const slots = value[d].map((txt, k) => {
       const [, en, from, to] = txt.match(SLOT_RE);
       const shown = en === "1" || k === 0;
-      return `<div class="slot" data-d="${d}" data-k="${k}"${shown ? "" : " hidden"}><span class="sw"><input type="checkbox" ${en === "1" ? "checked" : ""} aria-label="Plage active"><span></span></span>
+      return `<div class="slot" data-d="${d}" data-k="${k}"${shown ? "" : " hidden"}><label class="sw"><input type="checkbox" ${en === "1" ? "checked" : ""} aria-label="Plage active"><span></span></label>
         de <input type="text" class="hhmm" value="${from}" inputmode="numeric" aria-label="Début"> à <input type="text" class="hhmm" value="${to}" inputmode="numeric" aria-label="Fin"></div>`;
     }).join("");
     const more = value[d].length > 1 ? `<button type="button" class="btn small" data-addslot="${d}">+ plage</button>` : "";
@@ -356,8 +356,8 @@ function wireSnap(form) {
 
 function field(key, value, path) {
   const id = `f-${path}`;
-  if (typeof value === "boolean") return `<div class="row">${labelFor(key, path)}<span class="sw"><input type="checkbox" id="${esc(id)}" data-path="${esc(path)}" data-type="bool" ${value ? "checked" : ""}><span></span></span></div>`;
-  if (HEX_BOOL.has(key) && isHex(value) && parseInt(value, 16) <= 1) return `<div class="row">${labelFor(key, path)}<span class="sw"><input type="checkbox" id="${esc(id)}" data-path="${esc(path)}" data-type="hexbool" ${parseInt(value, 16) ? "checked" : ""}><span></span></span></div>`;
+  if (typeof value === "boolean") return `<div class="row">${labelFor(key, path)}<label class="sw"><input type="checkbox" id="${esc(id)}" data-path="${esc(path)}" data-type="bool" ${value ? "checked" : ""}><span></span></label></div>`;
+  if (HEX_BOOL.has(key) && isHex(value) && parseInt(value, 16) <= 1) return `<div class="row">${labelFor(key, path)}<label class="sw"><input type="checkbox" id="${esc(id)}" data-path="${esc(path)}" data-type="hexbool" ${parseInt(value, 16) ? "checked" : ""}><span></span></label></div>`;
   if (COLOR_KEYS.has(key) && isHex(value)) return colorField(key, value, path, id);
   if (HEX_ENUM[key] && isHex(value)) {
     const n = parseInt(value, 16), known = HEX_ENUM[key].some(([v]) => v === n), width = value.length - 2;
@@ -387,7 +387,7 @@ function field(key, value, path) {
     return `<div class="row">${labelFor(key, path)}<select id="${esc(id)}" data-path="${esc(path)}" data-type="str">${opts}</select></div>`;
   }
   if (key === "RelativePos" && Array.isArray(value) && value.length === 4 && value.every(Number.isInteger)) return relPosField(key, value, path);
-  if (NUM_BOOL.has(key) && (value === 0 || value === 1)) return `<div class="row">${labelFor(key, path)}<span class="sw"><input type="checkbox" id="${esc(id)}" data-path="${esc(path)}" data-type="numbool" ${value ? "checked" : ""}><span></span></span></div>`;
+  if (NUM_BOOL.has(key) && (value === 0 || value === 1)) return `<div class="row">${labelFor(key, path)}<label class="sw"><input type="checkbox" id="${esc(id)}" data-path="${esc(path)}" data-type="numbool" ${value ? "checked" : ""}><span></span></label></div>`;
   if (/Mask$/.test(key) && isLongHex(value)) return maskField(key, value, path);
   if (key === "PtzLink" && isPtz(value)) return ptzField(key, value, path);
   if (key === "TimeSection" && isSchedule(value)) return scheduleField(key, value, path);
@@ -568,7 +568,10 @@ async function save(value = null, name = S.name) {
   if (RISKY.test(name) && !window.confirm("Ce réglage peut rendre la caméra injoignable. Enregistrer quand même ?")) return;
   try {
     const r = await api(`api/${S.cam.id}/config/${encodeURIComponent(name)}`, { method: "POST", body: JSON.stringify({ value: v }) });
-    toast(r.restart ? "Enregistré. La caméra doit redémarrer pour appliquer ce réglage (Infos et actions › Redémarrer)." : "Enregistré sur la caméra (l'ancienne valeur est sauvegardée).");
+    if (r.ignored?.length) {
+      const names = r.ignored.map((p) => { const k = p.split(".").pop().replace(/\[\d+\]/g, ""); return L[k]?.[0] || k; });
+      toast(`La caméra a refusé ou ignoré : ${[...new Set(names)].join(", ")}. Ce réglage n'est peut-être pas pris en charge par ce modèle, ou demande un redémarrage.`, true);
+    } else toast(r.restart ? "Enregistré. La caméra doit redémarrer pour appliquer ce réglage (Infos et actions › Redémarrer)." : "Enregistré sur la caméra (l'ancienne valeur est sauvegardée).");
     if (value === null) pageSection(name);
   } catch (e) { toast(e.message, true); }
 }

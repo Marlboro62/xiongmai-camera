@@ -24,7 +24,7 @@ from urllib.parse import parse_qs, quote, unquote, urlsplit
 
 from dvrip import DvripClient, DvripError
 
-VERSION = "0.1.0-beta.13"
+VERSION = "0.1.0-beta.14"
 DATA = Path(os.environ.get("XM_DATA", "/data"))
 STATIC = Path(__file__).parent / "static"
 INGRESS_IP = "172.30.32.2"
@@ -126,6 +126,15 @@ def use_ha_timezone() -> None:
         os.environ["TZ"] = tz
         time.tzset()
         _LOGGER.info("Fuseau horaire : %s", tz)
+
+
+def diff_paths(a: Any, b: Any, path: str = "") -> list[str]:
+    """Chemins (« [0].Language ») des valeurs différentes entre deux réglages."""
+    if isinstance(a, dict) and isinstance(b, dict):
+        return [p for k in a.keys() | b.keys() for p in diff_paths(a.get(k), b.get(k), f"{path}.{k}" if path else k)]
+    if isinstance(a, list) and isinstance(b, list) and len(a) == len(b):
+        return [p for i, (x, y) in enumerate(zip(a, b)) for p in diff_paths(x, y, f"{path}[{i}]")]
+    return [] if a == b else [path or "(valeur)"]
 
 
 # ---------------------------------------------------------------- caméras
@@ -271,10 +280,21 @@ class App:
         client: DvripClient = cam["client"]
         try:
             # sauvegarde de l'état actuel, relu sur la caméra juste avant d'écrire
-            stamp = save_backup(cam["id"], name, await client.get_config(name))
+            before = await client.get_config(name)
+            stamp = save_backup(cam["id"], name, before)
             ret = await client.set_config(name, body["value"])
-            _LOGGER.info("%s : %s modifié (sauvegarde %s, code %s)", cam["name"], name, stamp, ret)
-            return json_response({"ok": True, "ret": ret, "restart": ret in (150, 603), "backup": stamp})
+            # relecture : la caméra répond « OK » même quand elle ignore une valeur qu'elle ne gère pas
+            ignored: list[str] = []
+            restart = ret in (150, 603)
+            if not restart:
+                try:
+                    after = await client.get_config(name)
+                    ignored = [p for p in diff_paths(before, body["value"]) if p not in diff_paths(before, after)]
+                except DvripError:
+                    pass
+            _LOGGER.info("%s : %s modifié (sauvegarde %s, code %s%s)", cam["name"], name, stamp, ret,
+                         f", ignoré par la caméra : {', '.join(ignored)}" if ignored else "")
+            return json_response({"ok": True, "ret": ret, "restart": restart, "backup": stamp, "ignored": ignored})
         except DvripError as err:
             return self._error(err)
 

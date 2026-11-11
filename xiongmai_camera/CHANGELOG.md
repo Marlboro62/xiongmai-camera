@@ -1,5 +1,10 @@
 # Changements
 
+## 0.1.0-beta.14
+
+- Correction : **les interrupteurs ne réagissaient pas au clic** (depuis la première bêta). Ils fonctionnent maintenant partout (réglages, plages horaires).
+- Après chaque enregistrement, l'application relit la section sur la caméra : si la caméra a répondu « OK » mais ignoré une valeur (réglage non pris en charge par le modèle), un message le dit au lieu d'annoncer un succès.
+
 ## 0.1.0-beta.13
 
 - **Heure d'été** comme dans NetSurveillance : « le dernier dimanche de mars à 2 h 00 » (jour de la semaine) ou une date précise, au lieu des chiffres Jour / Semaine / Mois / Année.
