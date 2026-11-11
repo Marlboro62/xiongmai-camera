@@ -91,4 +91,13 @@ button.info { display: inline-grid; place-items: center; width: 18px; height: 18
 button.info:hover, button.info.on { background: var(--accent); color: #fff; }
 .tip { display: block; margin: 6px 0 4px; padding: 8px 10px; border-radius: 8px; background: color-mix(in srgb, var(--accent) 14%, var(--surface));
   border-left: 3px solid var(--accent); color: var(--text); font-size: .82rem; font-weight: 400; line-height: 1.45; max-width: 460px; }
+.preview { position: relative; max-width: 720px; aspect-ratio: 16 / 9; background: var(--surface); border-radius: 10px; overflow: hidden; display: grid; place-items: center; }
+.preview img { width: 100%; height: 100%; object-fit: contain; }
+.url { display: grid; grid-template-columns: 1fr auto auto; gap: 8px; align-items: center; margin: 6px 0; }
+.url > .muted { grid-column: 1 / -1; }
+.url code { overflow-wrap: anywhere; background: var(--surface); padding: 6px 8px; border-radius: 6px; font-size: .8rem; }
+a.btn { color: var(--text); text-decoration: none; }
+.badge { display: inline-block; margin-left: 6px; padding: 1px 8px; border-radius: 999px; font-size: .75rem; font-weight: 600; background: var(--surface); color: var(--muted); vertical-align: 1px; }
+.badge.ok { background: color-mix(in srgb, var(--ok) 22%, transparent); color: var(--ok); }
+.badge.bad { background: color-mix(in srgb, var(--bad) 22%, transparent); color: var(--bad); }
 [hidden] { display: none !important; }

@@ -124,6 +124,13 @@ class ApiTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(st, 200)
         self.assertEqual(img[:2], b"\xff\xd8")
 
+    async def test_access(self):
+        st, d = await http(self.port, "GET", "/api/palier/access")
+        self.assertEqual(st, 200)
+        self.assertIn("_stream=0.sdp", d["rtsp"]["main"])
+        self.assertIn("_stream=1.sdp", d["rtsp"]["sub"])
+        self.assertTrue(d["onvif"]["url"].endswith(":8899/onvif/device_service"))
+
     async def test_guards(self):
         st, _ = await http(self.port, "GET", "/api/inconnue/info")
         self.assertEqual(st, 404)

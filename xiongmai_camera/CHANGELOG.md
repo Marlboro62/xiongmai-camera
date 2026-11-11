@@ -1,5 +1,14 @@
 # Changements
 
+## 0.1.0-beta.20
+
+- Nouvelle page **Flux et accès** :
+  - **aperçu** de la caméra en direct (une image par seconde environ), avec pause ;
+  - adresses **RTSP** des flux principal et secondaire, prêtes à copier (format des firmwares V4), avec le test du port et l'état du serveur RTSP ;
+  - **ONVIF** : test du service (port 8899) et paramètres pour l'intégration ONVIF de Home Assistant ; réglages ONVIF du firmware s'il en propose ;
+  - **HTTP** : adresse de l'image fixe et lien vers la page web de la caméra ;
+  - boutons vers les réglages RTSP et les ports (page Réseau). Les mots de passe sont masqués à l'écran.
+
 ## 0.1.0-beta.19
 
 - **Info-bulles** : un bouton **i** à côté de près de 100 réglages (image, couleurs, vidéo, textes, détection, réseau, système) explique à quoi sert le réglage, avec un exemple concret. Un clic ouvre ou ferme l'explication, aussi au doigt sur téléphone.

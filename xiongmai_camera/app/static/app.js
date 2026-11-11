@@ -57,6 +57,7 @@ const L = {
   ChannelNum: ["Nombre de canaux", "Information de la caméra : ne pas modifier"], DeviceType: ["Type d'appareil", "Information de la caméra : ne pas modifier"],
   OtherFunction: ["Autres fonctions", "Réservé au fabricant : laisser vide"], SN: ["Numéro de série (réseau)", "Ne le publiez pas"],
   pAddr: ["Adresse IPv6"], pGateway: ["Passerelle IPv6"], pLocalLinkAddr: ["Adresse IPv6 locale (lien)"], IPv6: ["IPv6"], Ipv6: ["IPv6"],
+  IsServer: ["Serveur RTSP (vidéo en direct)", "À laisser activé pour Home Assistant, go2rtc, VLC"], IsClient: ["Envoi vers un serveur RTSP externe", "Rarement utilisé"],
   VoiceTipInterval: ["Intervalle entre deux messages vocaux (s)"], VoiceType: ["Type de message vocal"],
   AeMeansure: ["Mesure de la lumière"], Ldc: ["Correction de la déformation de l'objectif", "Redresse les bords courbés (effet grand angle)"], BroadTrends: ["Large dynamique (WDR)"], CorridorMode: ["Mode couloir (image verticale)"], Dis: ["Stabilisation"],
   ExposureTime: ["Temps d'exposition (ms)"], LightRestrainLevel: ["Atténuation des lumières fortes", "Phares, lampadaires : 0 = désactivée, plus haut = plus atténué"], LowLuxMode: ["Mode faible luminosité", "Image plus claire dans le noir, un peu plus de bruit"],
@@ -88,7 +89,7 @@ const L = {
   MaxBps: ["Débit maximal"], MonMode: ["Mode de transport"], TCPMaxConn: ["Connexions simultanées au plus"], TransferPlan: ["Priorité de transfert"],
   UseHSDownLoad: ["Téléchargement rapide"], Interface: ["Interface"], Address: ["Adresse"], SpareAddress: ["Adresse de secours"],
   Server: ["Serveur"], Port: ["Port"], UserName: ["Utilisateur"], Password: ["Mot de passe"], Anonymity: ["Anonyme"], TimeZone: ["Fuseau horaire (index de la caméra)"],
-  UpdatePeriod: ["Mise à l'heure toutes les (minutes)"], Client: ["Client"], IsClient: ["Mode client"], IsServer: ["Serveur RTSP activé"],
+  UpdatePeriod: ["Mise à l'heure toutes les (minutes)"], Client: ["Client"],
   NatEnable: ["Cloud XMEye activé"], Addr: ["Serveur du cloud"], DnsServer1: ["DNS du cloud"], DnsServer2: ["DNS du cloud (secours)"], MTU: ["MTU"], XMeyeMTU: ["MTU XMEye"],
   // système
   AutoLogout: ["Déconnexion automatique (minutes, 0 : jamais)"], FontSize: ["Taille du texte"], IranCalendarEnable: ["Calendrier iranien"], LocalNo: ["Numéro de l'appareil"],
@@ -257,7 +258,7 @@ async function api(path, opts = {}) {
 const S = { sys: {}, cams: [], cam: null, page: "info", name: null, value: null, orig: null, backups: [] };
 
 function nav() {
-  const items = [`<div class="grp">Caméra</div><button data-page="info">Infos et actions</button>`];
+  const items = [`<div class="grp">Caméra</div><button data-page="info">Infos et actions</button><button data-page="access">Flux et accès</button>`];
   for (const [grp, list] of SECTIONS) {
     items.push(`<div class="grp">${esc(grp)}</div>`);
     for (const [name, title] of list) items.push(`<button data-page="section" data-name="${esc(name)}">${esc(title)}</button>`);
@@ -404,6 +405,8 @@ const TIPS = {
   AlarmOutType: "Mode de la sortie d'alarme : automatique (suit les alertes), ou forcée.",
   AlarmOutStatus: "État de la sortie d'alarme en mode forcé.",
   // Réseau
+  IsServer: "La caméra diffuse sa vidéo en RTSP. Exemple : indispensable pour la caméra générique de Home Assistant, go2rtc ou Frigate.",
+  IsClient: "La caméra envoie elle-même sa vidéo vers un serveur RTSP. Exemple : laisser désactivé sauf besoin particulier.",
   HostIP: "Adresse IP de la caméra. Attention : une adresse fausse rend la caméra injoignable. Exemple : une adresse fixe hors de la plage DHCP de la box.",
   Submask: "Masque du réseau. Exemple : 255.255.255.0 sur la plupart des réseaux domestiques.",
   GateWay: "Passerelle : l'adresse de la box ou du routeur.",
@@ -730,6 +733,63 @@ async function listUntranslated() {
     : `<p class="muted">Tous les réglages ont un nom en français.</p>`;
 }
 
+/* ------------------------------------------------- page « flux et accès » */
+function copyText(text) {
+  // l'API presse-papiers n'existe qu'en HTTPS : repli sur une zone de texte temporaire
+  if (navigator.clipboard && window.isSecureContext) return navigator.clipboard.writeText(text);
+  const t = document.createElement("textarea"); t.value = text; t.style.position = "fixed"; t.style.opacity = "0";
+  document.body.appendChild(t); t.select(); const ok = document.execCommand("copy"); t.remove();
+  return ok ? Promise.resolve() : Promise.reject(new Error("copie impossible"));
+}
+const badge = (ok, yes = "Ouvert", no = "Fermé") => ok === null || ok === undefined ? `<span class="badge">?</span>` : `<span class="badge ${ok ? "ok" : "bad"}">${ok ? yes : no}</span>`;
+function urlRow(label, url, secret, extra = "") {
+  const shown = secret ? url.split(secret).join("••••••") : url;
+  return `<div class="url"><span class="muted">${esc(label)}</span><code>${esc(shown)}</code><button type="button" class="btn small" data-copy="${esc(url)}">Copier</button>${extra}</div>`;
+}
+let previewT = null;
+async function pageAccess() {
+  const m = $("#main"), cam = S.cam;
+  clearTimeout(previewT);
+  m.innerHTML = `<h2>Flux et accès</h2><p class="muted">Aperçu en direct, adresses des flux vidéo (RTSP, HTTP, ONVIF) et test de chaque accès.</p>
+    <h3>Aperçu</h3>
+    <div class="preview"><img id="pv" alt="Image de la caméra"><span class="muted" id="pvmsg">Chargement…</span></div>
+    <div class="bar"><button class="btn" id="pvtoggle">Pause</button><span class="muted">Une image par seconde environ, prise sur la caméra. Pour la vraie vidéo, utilisez les flux ci-dessous.</span></div>
+    <h3>Accès</h3><div id="acc"><p class="muted">Test des accès…</p></div>`;
+  // aperçu : une image à la fois, la suivante une seconde après l'arrivée de la précédente
+  const img = $("#pv"), msg = $("#pvmsg");
+  let running = true;
+  const next = () => { if (S.page !== "access" || S.cam !== cam || !running) return; img.src = `api/${cam.id}/snapshot?t=${Date.now()}`; };
+  img.onload = () => { msg.hidden = true; img.hidden = false; previewT = setTimeout(next, 1000); };
+  img.onerror = () => { msg.hidden = false; img.hidden = true; msg.textContent = "Image indisponible (nouvel essai dans 5 s)."; previewT = setTimeout(next, 5000); };
+  $("#pvtoggle").onclick = (ev) => { running = !running; ev.target.textContent = running ? "Pause" : "Reprendre"; if (running) next(); else clearTimeout(previewT); };
+  next();
+  try {
+    const a = await api(`api/${cam.id}/access`);
+    const goBtn = (name, label) => `<button type="button" class="btn small" data-goto="${esc(name)}">${esc(label)}</button>`;
+    $("#acc").innerHTML = `
+      <fieldset><legend>RTSP : vidéo en direct ${badge(a.rtsp.open)}</legend>
+        <p class="muted">Pour la caméra générique de Home Assistant, go2rtc, VLC, Frigate… Port ${a.rtsp.port}${a.rtsp.server === false ? " · <b>serveur RTSP désactivé sur la caméra</b>" : ""}.</p>
+        ${urlRow("Flux principal (pleine qualité)", a.rtsp.main, a.rtsp.secret)}
+        ${urlRow("Flux secondaire (léger, pour le téléphone)", a.rtsp.sub, a.rtsp.secret)}
+        <p class="muted">Le mot de passe y figure sous forme d'empreinte (••••••), qui suffit pour se connecter : ne publiez pas ces adresses.</p>
+        <div class="bar">${goBtn("NetWork.RTSP", "Réglages RTSP")}</div></fieldset>
+      <fieldset><legend>ONVIF : découverte automatique ${badge(a.onvif.answers, "Répond", a.onvif.open ? "Port ouvert, ne répond pas" : "Fermé")}</legend>
+        <p class="muted">Pour l'intégration ONVIF de Home Assistant : hôte <code>${esc(a.host)}</code>, port <b>${a.onvif.port}</b>, vos identifiants. Elle crée la caméra et le capteur de mouvement.</p>
+        ${urlRow("Adresse du service", a.onvif.url, null)}
+        <div class="bar">${a.onvif.sections.length ? a.onvif.sections.map((n) => goBtn(n, `Réglages ONVIF (${n})`)).join("") : `<span class="muted">Ce firmware n'expose pas de réglage ONVIF par son protocole : il se règle seulement dans NetSurveillance.</span>`}</div></fieldset>
+      <fieldset><legend>HTTP : page web et image ${badge(a.http.open)}</legend>
+        <p class="muted">Page NetSurveillance et image fixe (JPEG), port ${a.http.port}.</p>
+        ${urlRow("Image fixe", a.http.snapshot, a.http.secret)}
+        ${urlRow("Page web", a.http.web, null, `<a class="btn small" href="${esc(a.http.web)}" target="_blank" rel="noopener">Ouvrir</a>`)}
+        <div class="bar">${goBtn("NetWork.NetCommon", "Ports (page Réseau)")}</div></fieldset>`;
+    $("#acc").onclick = async (ev) => {
+      const c = ev.target.closest("[data-copy]");
+      if (c) { try { await copyText(c.dataset.copy); toast("Adresse copiée."); } catch (e) { toast("Copie impossible : sélectionnez l'adresse à la main.", true); } return; }
+      const g = ev.target.closest("[data-goto]"); if (g) go("section", g.dataset.goto);
+    };
+  } catch (e) { $("#acc").innerHTML = `<div class="note bad">${esc(e.message)}</div>`; }
+}
+
 /* ------------------------------------------------------- éditeur JSON */
 function pageRaw() {
   const m = $("#main");
@@ -751,7 +811,7 @@ function pageRaw() {
 function go(page, name = null) {
   S.page = page; S.name = name; mark();
   if (!S.cam) { $("#main").innerHTML = `<h2>Aucune caméra configurée</h2><div class="note">Ajoutez votre caméra dans l'onglet <b>Configuration</b> de l'application : adresse IP, port (34567), utilisateur et mot de passe. Puis redémarrez l'application.</div>`; return; }
-  if (page === "info") pageInfo(); else if (page === "raw") pageRaw(); else pageSection(name);
+  if (page === "info") pageInfo(); else if (page === "access") pageAccess(); else if (page === "raw") pageRaw(); else pageSection(name);
 }
 $("#nav").addEventListener("click", (ev) => { const b = ev.target.closest("button[data-page]"); if (b) go(b.dataset.page, b.dataset.name || null); });
 $("#cam").addEventListener("change", (ev) => { S.cam = S.cams.find((c) => c.id === ev.target.value) || null; go(S.page, S.name); });

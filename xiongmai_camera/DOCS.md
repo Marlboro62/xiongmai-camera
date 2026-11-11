@@ -43,6 +43,16 @@ Après certains réglages (réseau surtout), la caméra demande un redémarrage 
 
 **Mettre la caméra à l'heure** envoie l'heure locale de Home Assistant (fuseau et heure d'été compris). C'est un réglage ponctuel : pour que la caméra reste à l'heure et passe seule à l'heure d'été et d'hiver, activez **Heure par Internet (NTP)** avec le bon fuseau, et la règle d'heure d'été dans **Langue, date et heure d'été**.
 
+## Flux et accès
+
+La page **Flux et accès** montre un aperçu de la caméra et les adresses de ses flux :
+
+- **RTSP** (vidéo en direct) : flux principal et secondaire, à copier dans la caméra générique de Home Assistant, go2rtc, VLC ou Frigate. Le mot de passe y figure sous forme d'empreinte : ne publiez pas ces adresses.
+- **ONVIF** : l'intégration ONVIF de Home Assistant (hôte de la caméra, port 8899) crée la caméra et un capteur de mouvement.
+- **HTTP** : image fixe JPEG et page web de la caméra.
+
+Chaque accès est testé (port ouvert ou fermé).
+
 ## Sauvegardes
 
 Avant chaque écriture, l'application relit la section sur la caméra et l'enregistre dans `/data/backups/<caméra>/<section>/` (les 30 dernières par section). Elles sont incluses dans les sauvegardes de Home Assistant. Pour revenir en arrière : liste **Revenir à une sauvegarde…** de la section, puis **Enregistrer**.

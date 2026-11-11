@@ -22,9 +22,9 @@ from pathlib import Path
 from typing import Any, Awaitable, Callable
 from urllib.parse import parse_qs, quote, unquote, urlsplit
 
-from dvrip import DvripClient, DvripError
+from dvrip import DvripClient, DvripError, sofia_hash
 
-VERSION = "0.1.0-beta.19"
+VERSION = "0.1.0-beta.20"
 DATA = Path(os.environ.get("XM_DATA", "/data"))
 STATIC = Path(__file__).parent / "static"
 INGRESS_IP = "172.30.32.2"
@@ -121,6 +121,33 @@ async def ha_now() -> tuple[str, bool]:
         _HA_TIME_WARNED = True
         _LOGGER.warning("Heure de Home Assistant illisible (%s) ; jeton Supervisor présent : %s", err, bool(os.environ.get("SUPERVISOR_TOKEN")))
     return datetime.now().strftime("%Y-%m-%d %H:%M:%S"), time.localtime().tm_gmtoff != 0
+
+
+async def tcp_open(host: str, port: int, timeout: float = 2.5) -> bool:
+    """Le port répond-il ?"""
+    try:
+        _r, w = await asyncio.wait_for(asyncio.open_connection(host, port), timeout)
+        w.close()
+        return True
+    except (OSError, TimeoutError):
+        return False
+
+
+ONVIF_PROBE = (b'<?xml version="1.0" encoding="UTF-8"?><s:Envelope xmlns:s="http://www.w3.org/2003/05/soap-envelope">'
+               b'<s:Body><GetSystemDateAndTime xmlns="http://www.onvif.org/ver10/device/wsdl"/></s:Body></s:Envelope>')
+
+
+async def onvif_probe(host: str, port: int) -> bool:
+    """Le service ONVIF répond-il ? (GetSystemDateAndTime, sans identifiants, autorisé par la norme)"""
+    def run() -> bool:
+        req = urllib.request.Request(f"http://{host}:{port}/onvif/device_service", ONVIF_PROBE,
+                                     {"Content-Type": "application/soap+xml; charset=utf-8"}, method="POST")
+        try:
+            with urllib.request.urlopen(req, timeout=4) as resp:  # noqa: S310 - adresse de la caméra configurée
+                return b"SystemDateAndTime" in resp.read(65536)
+        except (OSError, ValueError):
+            return False
+    return await asyncio.to_thread(run)
 
 
 def load_container_env() -> None:
@@ -229,6 +256,7 @@ class App:
         r("POST", r"/api/(?P<cam>[a-z0-9_]+)/reboot", self.api_reboot)
         r("GET", r"/api/(?P<cam>[a-z0-9_]+)/export", self.api_export)
         r("GET", r"/api/(?P<cam>[a-z0-9_]+)/snapshot", self.api_snapshot)
+        r("GET", r"/api/(?P<cam>[a-z0-9_]+)/access", self.api_access)
         r("GET", r"/static/(?P<file>[A-Za-z0-9_.-]+)", self.static)
 
     def route(self, method: str, pattern: str, handler: Callable[[Request], Awaitable[Response]]) -> None:
@@ -367,6 +395,42 @@ class App:
                 errors.append(f"{label} : {err}")
         _LOGGER.info("%s : image indisponible (%s)", cam["name"], " ; ".join(errors))
         return json_response({"error": "Image indisponible", "details": errors}, 502)
+
+    async def api_access(self, req: Request) -> Response:
+        """Adresses des flux (RTSP, image HTTP, ONVIF) et test de chaque accès."""
+        cam = self.cams.get(req.params["cam"])
+        client: DvripClient = cam["client"]
+        host, user, pwd = cam["host"], cam["username"], cam["password"]
+
+        async def conf(name: str) -> Any:
+            try:
+                return await client.get_config(name)
+            except DvripError:
+                return None
+
+        common = await conf("NetWork.NetCommon") or {}
+        rtsp = await conf("NetWork.RTSP") or {}
+        http_port = int(common.get("HttpPort") or cam["http_port"] or 80)
+        rtsp_server = rtsp.get("Server") if isinstance(rtsp, dict) else None
+        rtsp_port = int((rtsp_server or {}).get("Port") or 554)
+        onvif_port = 8899
+        # sections ONVIF : le nom varie selon les firmwares
+        onvif_sections = [n for n in ("NetWork.Onvif", "NetWork.OnvifPwdCheckout", "NetWork.NetOnvif", "NetWork.ONVIF") if await conf(n) is not None]
+        h = sofia_hash(pwd)
+        rtsp_url = f"rtsp://{host}:{rtsp_port}/user={user}_password={h}_channel=1_stream={{s}}.sdp?real_stream"
+        checks = await asyncio.gather(
+            tcp_open(host, rtsp_port), tcp_open(host, http_port), tcp_open(host, onvif_port), onvif_probe(host, onvif_port))
+        return json_response({
+            "host": host,
+            "rtsp": {"port": rtsp_port, "open": checks[0], "server": (rtsp or {}).get("IsServer") if isinstance(rtsp, dict) else None,
+                     "main": rtsp_url.format(s=0), "sub": rtsp_url.format(s=1), "secret": h},
+            "http": {"port": http_port, "open": checks[1],
+                     "snapshot": f"http://{host}:{http_port}/webcapture.jpg?command=snap&channel=1&user={quote(user)}&password={quote(pwd)}",
+                     "web": f"http://{host}:{http_port}/", "secret": quote(pwd) if pwd else None},
+            "onvif": {"port": onvif_port, "open": checks[2], "answers": checks[3], "url": f"http://{host}:{onvif_port}/onvif/device_service",
+                      "sections": onvif_sections},
+            "dvrip": {"port": cam["port"], "open": client.connected or None},
+        })
 
     async def api_time(self, req: Request) -> Response:
         """Met la caméra à l'heure de Home Assistant (heure demandée à Home Assistant, heure d'été comprise)."""
