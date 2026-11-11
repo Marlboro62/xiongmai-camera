@@ -32,4 +32,9 @@
     </g>
     <circle r="10" fill="#0d1624"/>
   </g>
+  <!-- signature Marlboro62 -->
+  <g font-family="Inter, 'Segoe UI', 'DejaVu Sans', Arial, sans-serif" font-weight="800">
+    <rect x="30" y="182" width="88" height="40" rx="20" fill="#0d1624" stroke="#f0a33a" stroke-width="3"/>
+    <text x="74" y="211" font-size="26" text-anchor="middle" fill="#f0a33a" letter-spacing="1">M62</text>
+  </g>
 </svg>
