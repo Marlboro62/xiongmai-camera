@@ -82,4 +82,8 @@ table.kv td:first-child { color: var(--muted); width: 45%; }
 .poss { display: flex; gap: 12px; flex-wrap: wrap; }
 .row .poss label.pos { display: flex; flex-direction: row; align-items: center; gap: 6px; }
 .row .poss input { width: 84px; }
+.dst { display: flex; flex-direction: column; gap: 6px; }
+.dst > div { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.row .dst select { width: auto; }
+.row .dst input.d-year { width: 90px; }
 [hidden] { display: none !important; }

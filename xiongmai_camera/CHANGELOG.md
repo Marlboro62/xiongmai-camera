@@ -1,5 +1,10 @@
 # Changements
 
+## 0.1.0-beta.13
+
+- **Heure d'été** comme dans NetSurveillance : « le dernier dimanche de mars à 2 h 00 » (jour de la semaine) ou une date précise, au lieu des chiffres Jour / Semaine / Mois / Année.
+- **Jours ouvrés** en cases à cocher (lun. → dim.) au lieu du nombre 62.
+
 ## 0.1.0-beta.12
 
 - **Langue** : liste des langues proposées par la caméra elle-même (Anglais, Français…), au lieu d'un champ texte qui ne montrait que la valeur actuelle. C'est la langue des menus de la caméra (NetSurveillance, CMS), pas celle de cette page, qui reste en français.

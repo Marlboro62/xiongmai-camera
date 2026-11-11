@@ -21,8 +21,8 @@ PASSWORDS = {sofia_hash(""), sofia_hash("demo")}
 CONFIG = {
     "General.General": {"AutoLogout": 0, "FontSize": 24, "IranCalendarEnable": 0, "LocalNo": 0, "MachineName": "Caméra-Exemple",
                         "OverWrite": "OverWrite", "ScreenAutoShutdown": 10, "ScreenSaveTime": 0, "VideoOutPut": "Auto"},
-    "General.Location": {"DSTEnd": {"Day": 1, "Hour": 3, "Minute": 0, "Month": 10, "Week": -1, "Year": 2026},
-                         "DSTRule": "On", "DSTStart": {"Day": 1, "Hour": 2, "Minute": 0, "Month": 3, "Week": -1, "Year": 2026},
+    "General.Location": {"DSTEnd": {"Day": 0, "Hour": 3, "Minute": 0, "Month": 10, "Week": 5, "Year": 2027},
+                         "DSTRule": "On", "DSTStart": {"Day": 0, "Hour": 2, "Minute": 0, "Month": 3, "Week": 5, "Year": 2027},
                          "DateFormat": "DDMMYY", "DateSeparator": "/", "Language": "English", "TimeFormat": "24",
                          "VideoFormat": "PAL", "WorkDay": 62},
     "Camera.Param": [{"AeSensitivity": 5, "ApertureMode": "0x00000001", "BLCMode": "0x00000000", "DayNightColor": "0x00000000",

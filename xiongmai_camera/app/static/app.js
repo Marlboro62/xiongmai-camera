@@ -93,9 +93,9 @@ const L = {
   // système
   AutoLogout: ["Déconnexion automatique (minutes, 0 : jamais)"], FontSize: ["Taille du texte"], IranCalendarEnable: ["Calendrier iranien"], LocalNo: ["Numéro de l'appareil"],
   MachineName: ["Nom de l'appareil"], OverWrite: ["Quand le disque est plein"], ScreenAutoShutdown: ["Extinction de l'écran"], ScreenSaveTime: ["Écran de veille"],
-  VideoOutPut: ["Sortie vidéo", "Sortie écran des enregistreurs : laisser sur Auto"], DSTEnd: ["Fin de l'heure d'été"], DSTStart: ["Début de l'heure d'été"], DSTRule: ["Heure d'été"], DateFormat: ["Format de la date"],
+  VideoOutPut: ["Sortie vidéo", "Sortie écran des enregistreurs : laisser sur Auto"], DSTEnd: ["Fin de l'heure d'été", "France : le dernier dimanche d'octobre à 3 h"], DSTStart: ["Début de l'heure d'été", "France : le dernier dimanche de mars à 2 h"], DSTRule: ["Heure d'été", "Passage automatique à l'heure d'été et d'hiver"], DateFormat: ["Format de la date"],
   DateSeparator: ["Séparateur de date"], TimeFormat: ["Format de l'heure"], VideoFormat: ["Standard vidéo", "PAL en Europe"],
-  WorkDay: ["Jours ouvrés"], Day: ["Jour"], Hour: ["Heure"], Minute: ["Minute"], Month: ["Mois"], Week: ["Semaine"], Year: ["Année"],
+  WorkDay: ["Jours ouvrés", "Jours de travail pour les plannings de l'enregistreur"], Day: ["Jour"], Hour: ["Heure"], Minute: ["Minute"], Month: ["Mois"], Week: ["Semaine"], Year: ["Année"],
 };
 // valeurs proposées (liste avec saisie libre) pour quelques réglages connus
 const SUGGEST = {};
@@ -218,6 +218,31 @@ function relPosField(key, value, path) {
   const names = rect ? ["Gauche", "Haut", "Droite", "Bas"] : ["Horizontal", "Vertical"];
   const inputs = names.map((n, i) => `<label class="pos"><small>${n}</small><input type="number" min="0" max="100" step="0.1" data-i="${i}" value="${Math.round(value[i] / POS_MAX * 1000) / 10}"> %</label>`).join("");
   return `<div class="row">${labelFor(key, path)}<div class="poss" data-path="${esc(path)}" data-type="relpos" data-orig="${esc(JSON.stringify(value))}">${inputs}</div></div>`;
+}
+/* Heure d'été (DSTStart / DSTEnd), même codage que NetSurveillance :
+ * mode « jour de la semaine » : Week 1 à 4 = 1re à 4e semaine, 5 = dernière ; Day 0 = dimanche … 6 = samedi.
+ * mode « date » : Week 0, Day = jour du mois, Year utilisé. */
+const MONTHS = ["janvier", "février", "mars", "avril", "mai", "juin", "juillet", "août", "septembre", "octobre", "novembre", "décembre"];
+const WEEKDAYS = ["dimanche", "lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi"];
+const WEEKS = [[1, "1er"], [2, "2e"], [3, "3e"], [4, "4e"], [5, "dernier"]];
+const isDst = (v) => v && typeof v === "object" && !Array.isArray(v) && ["Day", "Hour", "Minute", "Month", "Week", "Year"].every((k) => Number.isInteger(v[k]));
+function dstField(key, v, path) {
+  const sel = (cls, list, cur) => `<select class="${cls}">${list.map(([val, l]) => `<option value="${val}"${val === cur ? " selected" : ""}>${esc(l)}</option>`).join("")}</select>`;
+  const byWeek = v.Week !== 0;
+  const months = MONTHS.map((m, i) => [i + 1, m]);
+  const hours = Array.from({ length: 24 }, (_, h) => [h, `${h} h`]);
+  const mins = [0, 15, 30, 45].includes(v.Minute) ? [0, 15, 30, 45].map((m) => [m, String(m).padStart(2, "0")]) : [[v.Minute, String(v.Minute).padStart(2, "0")], ...[0, 15, 30, 45].map((m) => [m, String(m).padStart(2, "0")])];
+  return `<div class="row">${labelFor(key, path)}<div class="dst" data-path="${esc(path)}" data-type="dst" data-orig="${esc(JSON.stringify(v))}">
+    ${sel("d-mode", [[1, "Un jour de la semaine"], [0, "Une date précise"]], byWeek ? 1 : 0)}
+    <div class="d-week"${byWeek ? "" : " hidden"}>le ${sel("d-wk", WEEKS, byWeek ? v.Week : 5)} ${sel("d-wd", WEEKDAYS.map((d, i) => [i, d]), byWeek ? v.Day : 0)} de ${sel("d-m1", months, v.Month)}</div>
+    <div class="d-date"${byWeek ? " hidden" : ""}>le ${sel("d-day", Array.from({ length: 31 }, (_, i) => [i + 1, String(i + 1)]), byWeek ? 1 : v.Day)} ${sel("d-m2", months, v.Month)} <input type="number" class="d-year" min="2000" max="2099" value="${v.Year}"></div>
+    <div>à ${sel("d-h", hours, v.Hour)} ${sel("d-min", mins, v.Minute)}</div></div></div>`;
+}
+/* Jours ouvrés : un bit par jour, bit 0 = dimanche (62 = du lundi au vendredi) */
+function workdayField(key, value, path) {
+  const order = [1, 2, 3, 4, 5, 6, 0];
+  const boxes = order.map((d) => `<label class="chk"><input type="checkbox" data-bit="${d}" ${value & (1 << d) ? "checked" : ""}> ${WEEKDAYS[d].slice(0, 3)}.</label>`).join("");
+  return `<div class="row">${labelFor(key, path)}<div class="chks" data-path="${esc(path)}" data-type="workday" data-orig="${value}">${boxes}</div></div>`;
 }
 const isHex = (v) => typeof v === "string" && /^0x[0-9a-f]{1,8}$/i.test(v);
 let toastT;
@@ -348,6 +373,8 @@ function field(key, value, path) {
     const opts = NUM_ENUM[key].map(([v, l]) => `<option value="${v}"${v === value ? " selected" : ""}>${esc(l)}</option>`).join("") + (known ? "" : `<option value="${value}" selected>Autre (${value})</option>`);
     return `<div class="row">${labelFor(key, path)}<select id="${esc(id)}" data-path="${esc(path)}" data-type="num">${opts}</select></div>`;
   }
+  if ((key === "DSTStart" || key === "DSTEnd") && isDst(value)) return dstField(key, value, path);
+  if (key === "WorkDay" && Number.isInteger(value) && value >= 0 && value < 128) return workdayField(key, value, path);
   if (key === "Language" && typeof value === "string") {
     const langs = (S.langs?.length ? S.langs : Object.keys(LANG_FR)).map((v) => [v, LANG_FR[v] || v]);
     const known = langs.some(([v]) => v === value);
@@ -421,6 +448,14 @@ function readForm() {
     else if (t === "hexenum") setAt(v, p, "0x" + Number(el.value).toString(16).toUpperCase().padStart(Number(el.dataset.width), "0"));
     else if (t === "us") { const us = Math.round(Number(el.value) * 1000); if (!(us >= 0) || el.value === "") throw new Error(`Temps invalide : ${p.split(".").pop()}`); setAt(v, p, "0x" + us.toString(16).toUpperCase().padStart(Number(el.dataset.width), "0")); }
     else if (t === "numbool") setAt(v, p, el.checked ? 1 : 0);
+    else if (t === "dst") {
+      const o = JSON.parse(el.dataset.orig), q = (c) => Number(el.querySelector(c).value);
+      if (q(".d-mode") === 1) Object.assign(o, { Week: q(".d-wk"), Day: q(".d-wd"), Month: q(".d-m1") });
+      else { const y = q(".d-year"); if (!(y >= 2000 && y <= 2099)) throw new Error("Année invalide"); Object.assign(o, { Week: 0, Day: q(".d-day"), Month: q(".d-m2"), Year: y }); }
+      Object.assign(o, { Hour: q(".d-h"), Minute: q(".d-min") });
+      setAt(v, p, o);
+    }
+    else if (t === "workday") { let n = Number(el.dataset.orig) & ~127; for (const c of el.querySelectorAll("input[data-bit]")) if (c.checked) n |= 1 << Number(c.dataset.bit); setAt(v, p, n); }
     else if (t === "relpos") {
       const arr = JSON.parse(el.dataset.orig);
       for (const i of el.querySelectorAll("input[data-i]")) { const pc = Number(i.value); if (i.value === "" || !(pc >= 0 && pc <= 100)) throw new Error("Position invalide (0 à 100 %)"); if (pc !== Number(i.defaultValue)) arr[i.dataset.i] = Math.round(pc / 100 * POS_MAX); }
@@ -490,6 +525,10 @@ function wireForm() {
   form.addEventListener("pointerover", (ev) => { const c = ev.target.closest(".grid-md i"); if (c && painting !== null) c.classList.toggle("on", painting); });
   window.addEventListener("pointerup", () => { painting = null; });
   wireSnap(form);
+  form.addEventListener("change", (ev) => {
+    const m = ev.target.closest(".d-mode"); if (!m) return;
+    const box = m.closest(".dst"); box.querySelector(".d-week").hidden = m.value !== "1"; box.querySelector(".d-date").hidden = m.value === "1";
+  });
   form.addEventListener("click", (ev) => {
     const add = ev.target.closest("[data-addslot]");
     if (add) { const next = [...add.parentElement.querySelectorAll(".slot[hidden]")][0]; if (next) { next.hidden = false; next.querySelector("input[type=checkbox]").checked = true; } if (!add.parentElement.querySelector(".slot[hidden]")) add.hidden = true; return; }
