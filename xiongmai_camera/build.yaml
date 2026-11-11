@@ -1,0 +1,5 @@
+# Image construite par Home Assistant à l'installation : Alpine et Python, rien d'autre
+build_from:
+  aarch64: alpine:3.20
+  amd64: alpine:3.20
+  armv7: alpine:3.20

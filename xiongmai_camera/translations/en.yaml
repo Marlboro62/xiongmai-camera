@@ -1,0 +1,6 @@
+configuration:
+  cameras:
+    name: Cameras
+    description: >-
+      One entry per camera: name (display name), host (IP address), port (34567 by default),
+      username (usually admin) and password (empty if none).

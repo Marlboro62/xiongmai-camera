@@ -1,0 +1,44 @@
+name: Contrôle
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  tests:
+    name: Tests (caméra simulée)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - run: python -m unittest discover -s tests -v
+      - name: Syntaxe JavaScript
+        run: node --check xiongmai_camera/app/static/app.js
+
+  linter:
+    name: Vérification de l'application
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: frenck/action-addon-linter@v2
+        with:
+          path: ./xiongmai_camera
+
+  build:
+    name: Construction de l'image (amd64)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - run: docker build -t xiongmai-camera-test ./xiongmai_camera
+      - name: Démarrage de l'image
+        run: |
+          mkdir -p /tmp/xmdata && echo '{"cameras":[]}' > /tmp/xmdata/options.json
+          docker run -d --name xm -e XM_ALLOW_ALL=1 -v /tmp/xmdata:/data -p 8099:8099 xiongmai-camera-test
+          sleep 3
+          curl -sf http://127.0.0.1:8099/api/cameras
+          curl -sf http://127.0.0.1:8099/ | grep -q "Caméra XiongMai"
+          docker logs xm

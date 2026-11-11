@@ -1,0 +1,6 @@
+configuration:
+  cameras:
+    name: Caméras
+    description: >-
+      Une ligne par caméra : name (nom affiché), host (adresse IP), port (34567 par défaut),
+      username (admin en général) et password (vide si aucun mot de passe).
