@@ -1,5 +1,9 @@
 # Changements
 
+## 0.1.0-beta.4
+
+- Textes à l'écran : couleur du texte et du fond choisies par leur nom (Blanc, Noir, Rouge, Transparent…) au lieu des codes hexadécimaux ; une couleur inconnue reste proposée telle quelle.
+
 ## 0.1.0-beta.3
 
 - Correction : **Mettre la caméra à l'heure** envoyait encore l'heure UTC. L'heure est maintenant demandée directement à Home Assistant (fuseau et heure d'été compris).

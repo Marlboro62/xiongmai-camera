@@ -102,6 +102,23 @@ const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "
 const clone = (v) => JSON.parse(JSON.stringify(v));
 const hexToIp = (h) => { const n = parseInt(h, 16); return [n & 255, (n >>> 8) & 255, (n >>> 16) & 255, (n >>> 24) & 255].join("."); };
 const ipToHex = (ip) => { const p = ip.split(".").map(Number); if (p.length !== 4 || p.some((x) => !(x >= 0 && x <= 255))) return null; return "0x" + ((p[3] << 24 >>> 0) + (p[2] << 16) + (p[1] << 8) + p[0]).toString(16).toUpperCase().padStart(8, "0"); };
+/** Couleurs des textes à l'écran : 0xAABBGGRR (opacité, puis bleu, vert, rouge, comme les couleurs Windows de l'ActiveX).
+ *  Ordre déduit, à confirmer sur une caméra : si « Rouge » s'affiche en bleu, inverser R et B ici. */
+const COLOR_KEYS = new Set(["FrontColor", "BackColor"]);
+const COLORS = [["Blanc", "FFFFFF"], ["Noir", "000000"], ["Gris", "808080"], ["Rouge", "0000FF"], ["Vert", "00FF00"], ["Bleu", "FF0000"],
+  ["Jaune", "00FFFF"], ["Cyan", "FFFF00"], ["Magenta", "FF00FF"], ["Orange", "0080FF"]];
+function colorField(key, value, path, id) {
+  const n = parseInt(value, 16) >>> 0, alpha = n >>> 24, bgr = (n & 0xFFFFFF).toString(16).toUpperCase().padStart(6, "0");
+  const keepAlpha = (alpha || 0xF0).toString(16).toUpperCase().padStart(2, "0");
+  const opts = [];
+  let known = false;
+  const opt = (label, v) => { const sel = (parseInt(v, 16) >>> 0) === n; known ||= sel; opts.push(`<option value="${v}"${sel ? " selected" : ""}>${label}</option>`); };
+  opt("Transparent (aucun)", "0x00000000");
+  for (const [label, c] of COLORS) opt(label, `0x${keepAlpha}${c}`);
+  const name = COLORS.find(([, c]) => c === bgr)?.[0];
+  if (!known) opts.push(`<option value="${esc(value)}" selected>${esc(name ? `${name} (opacité ${Math.round(alpha / 2.55)} %)` : `Autre (${value})`)}</option>`);
+  return `<div class="row">${labelFor(key, path)}<select id="${esc(id)}" data-path="${esc(path)}" data-type="str">${opts.join("")}</select></div>`;
+}
 const isHex = (v) => typeof v === "string" && /^0x[0-9a-f]{1,8}$/i.test(v);
 let toastT;
 function toast(msg, bad = false) { const t = $("#toast"); t.textContent = msg; t.classList.toggle("bad", bad); t.classList.add("on"); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove("on"), bad ? 7000 : 3500); }
@@ -200,6 +217,7 @@ function field(key, value, path) {
   const id = `f-${path}`;
   if (typeof value === "boolean") return `<div class="row">${labelFor(key, path)}<span class="sw"><input type="checkbox" id="${esc(id)}" data-path="${esc(path)}" data-type="bool" ${value ? "checked" : ""}><span></span></span></div>`;
   if (HEX_BOOL.has(key) && isHex(value) && parseInt(value, 16) <= 1) return `<div class="row">${labelFor(key, path)}<span class="sw"><input type="checkbox" id="${esc(id)}" data-path="${esc(path)}" data-type="hexbool" ${parseInt(value, 16) ? "checked" : ""}><span></span></span></div>`;
+  if (COLOR_KEYS.has(key) && isHex(value)) return colorField(key, value, path, id);
   if (IP_KEYS.has(key) && isHex(value)) return `<div class="row">${labelFor(key, path)}<input type="text" id="${esc(id)}" data-path="${esc(path)}" data-type="ip" value="${esc(hexToIp(value))}" inputmode="decimal"></div>`;
   if (typeof value === "number") return `<div class="row">${labelFor(key, path)}<input type="number" id="${esc(id)}" data-path="${esc(path)}" data-type="num" value="${esc(value)}" step="any"></div>`;
   if (typeof value === "string") {
