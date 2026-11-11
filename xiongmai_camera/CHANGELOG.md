@@ -1,5 +1,15 @@
 # Changements
 
+## 0.1.0-beta.21
+
+- **Entités Home Assistant par MQTT** : un appareil par caméra, créé automatiquement (découverte MQTT) :
+  - interrupteurs **Détection de mouvement**, **Image miroir**, **Image retournée**, **Cloud XMEye** ;
+  - **Sensibilité de la détection** (1 à 6) et **Mode jour / nuit** (liste) ;
+  - boutons **Redémarrer** et **Mettre à l'heure de Home Assistant** ;
+  - capteurs **Connexion** et **Temps de fonctionnement**.
+  États relus toutes les minutes, et juste après chaque commande.
+- Broker : l'application Mosquitto de Home Assistant est trouvée toute seule ; sinon options `mqtt_host`, `mqtt_port`, `mqtt_username`, `mqtt_password`, `mqtt_tls`, `mqtt_tls_insecure`. Option `mqtt` pour tout couper.
+
 ## 0.1.0-beta.20
 
 - Nouvelle page **Flux et accès** :

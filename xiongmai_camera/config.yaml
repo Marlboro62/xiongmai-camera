@@ -1,5 +1,5 @@
 name: "Caméra XiongMai"
-version: "0.1.0-beta.20"
+version: "0.1.0-beta.21"
 slug: "xiongmai_camera"
 description: "Réglages des caméras IP XiongMai / XMEye sans ActiveX ni Internet Explorer"
 url: "https://github.com/Marlboro62/xiongmai-camera"
@@ -10,10 +10,13 @@ arch:
 init: false
 ingress: true
 homeassistant_api: true
+services:
+  - mqtt:want
 panel_icon: mdi:cctv
 panel_title: "Caméra XiongMai"
 options:
   cameras: []
+  mqtt: true
 schema:
   cameras:
     - name: str
@@ -23,3 +26,10 @@ schema:
       password: password
       http_port: port?
       snapshot_entity: str?
+  mqtt: bool
+  mqtt_host: str?
+  mqtt_port: port?
+  mqtt_username: str?
+  mqtt_password: password?
+  mqtt_tls: bool?
+  mqtt_tls_insecure: bool?

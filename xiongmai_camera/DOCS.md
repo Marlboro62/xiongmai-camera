@@ -43,6 +43,37 @@ Après certains réglages (réseau surtout), la caméra demande un redémarrage 
 
 **Mettre la caméra à l'heure** envoie l'heure locale de Home Assistant (fuseau et heure d'été compris). C'est un réglage ponctuel : pour que la caméra reste à l'heure et passe seule à l'heure d'été et d'hiver, activez **Heure par Internet (NTP)** avec le bon fuseau, et la règle d'heure d'été dans **Langue, date et heure d'été**.
 
+## Entités Home Assistant (MQTT)
+
+L'application crée dans Home Assistant un appareil par caméra, par la découverte MQTT :
+
+| Entité | Rôle |
+| --- | --- |
+| Détection de mouvement | Active ou coupe la détection de la caméra |
+| Sensibilité de la détection | 1 (faible) à 6 (forte) |
+| Mode jour / nuit | Automatique, toujours en couleur, toujours en noir et blanc |
+| Image miroir, Image retournée | Sens de l'image |
+| Cloud XMEye | Connexion au cloud du fabricant |
+| Redémarrer, Mettre à l'heure de Home Assistant | Boutons |
+| Connexion, Temps de fonctionnement | Diagnostic |
+
+Il faut l'intégration **MQTT** dans Home Assistant et un broker :
+
+- l'application **Mosquitto** de Home Assistant est trouvée toute seule, sans rien régler ;
+- un autre broker se règle dans les options : `mqtt_host`, `mqtt_port` (1883, ou 8883 en TLS), `mqtt_username`, `mqtt_password`, `mqtt_tls`, et `mqtt_tls_insecure` pour un certificat auto-signé.
+
+```yaml
+mqtt: true
+mqtt_host: 192.168.1.50
+mqtt_port: 1883
+mqtt_username: camera
+mqtt_password: "…"
+```
+
+`mqtt: false` coupe les entités. Le journal indique « MQTT : connecté à … » quand tout va bien.
+
+Le capteur de mouvement lui-même vient de l'intégration **ONVIF** de Home Assistant (voir **Flux et accès**).
+
 ## Flux et accès
 
 La page **Flux et accès** montre un aperçu de la caméra et les adresses de ses flux :

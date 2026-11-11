@@ -6,3 +6,24 @@ configuration:
       username (admin en général) et password (vide si aucun mot de passe).
       Facultatif : http_port (port web de la caméra, 80 par défaut) et snapshot_entity
       (entité caméra de Home Assistant, ex. camera.palier, pour l'image sous la grille de détection).
+  mqtt:
+    name: Entités Home Assistant (MQTT)
+    description: >-
+      Crée un appareil par caméra dans Home Assistant (détection, sensibilité, mode jour / nuit, miroir,
+      cloud, redémarrage…). Utilise l'application Mosquitto, ou le broker indiqué ci-dessous.
+  mqtt_host:
+    name: Broker MQTT (facultatif)
+    description: Adresse d'un broker externe. Vide = application Mosquitto de Home Assistant.
+  mqtt_port:
+    name: Port du broker
+    description: 1883 par défaut, 8883 avec TLS.
+  mqtt_username:
+    name: Utilisateur MQTT
+  mqtt_password:
+    name: Mot de passe MQTT
+  mqtt_tls:
+    name: TLS
+    description: Connexion chiffrée au broker.
+  mqtt_tls_insecure:
+    name: Accepter un certificat auto-signé
+    description: Ne vérifie pas le certificat du broker (réseau local seulement).

@@ -23,8 +23,9 @@ from typing import Any, Awaitable, Callable
 from urllib.parse import parse_qs, quote, unquote, urlsplit
 
 from dvrip import DvripClient, DvripError, sofia_hash
+from ha_mqtt import MqttBridge
 
-VERSION = "0.1.0-beta.20"
+VERSION = "0.1.0-beta.21"
 DATA = Path(os.environ.get("XM_DATA", "/data"))
 STATIC = Path(__file__).parent / "static"
 INGRESS_IP = "172.30.32.2"
@@ -242,7 +243,8 @@ def list_backups(cam: str, name: str) -> list[str]:
 
 class App:
     def __init__(self, options: dict[str, Any] | None = None) -> None:
-        self.cams = Cameras(options if options is not None else load_options())
+        self.options = options if options is not None else load_options()
+        self.cams = Cameras(self.options)
         self.routes: list[tuple[str, re.Pattern[str], Callable[[Request], Awaitable[Response]]]] = []
         self.allow_all = os.environ.get("XM_ALLOW_ALL") == "1"
         r = self.route
@@ -539,12 +541,14 @@ class App:
     async def serve(self, host: str = "0.0.0.0", port: int = 8099) -> None:
         server = await asyncio.start_server(self.handle, host, port)
         task = asyncio.create_task(self.keepalive())
+        bridge = asyncio.create_task(MqttBridge(self.cams.items, self.options, ha_now).run())
         _LOGGER.info("Caméra XiongMai %s : %d caméra(s), page de réglages sur le port %d", VERSION, len(self.cams.items), port)
         try:
             async with server:
                 await server.serve_forever()
         finally:
             task.cancel()
+            bridge.cancel()
             for cam in self.cams.items.values():
                 await cam["client"].close()
 

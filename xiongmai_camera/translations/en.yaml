@@ -6,3 +6,24 @@ configuration:
       username (usually admin) and password (empty if none).
       Optional: http_port (camera web port, 80 by default) and snapshot_entity
       (Home Assistant camera entity, e.g. camera.porch, for the picture under the motion grid).
+  mqtt:
+    name: Home Assistant entities (MQTT)
+    description: >-
+      Creates one device per camera in Home Assistant (motion detection, sensitivity, day / night mode,
+      mirror, cloud, reboot…). Uses the Mosquitto app, or the broker below.
+  mqtt_host:
+    name: MQTT broker (optional)
+    description: External broker address. Empty = Home Assistant Mosquitto app.
+  mqtt_port:
+    name: Broker port
+    description: 1883 by default, 8883 with TLS.
+  mqtt_username:
+    name: MQTT username
+  mqtt_password:
+    name: MQTT password
+  mqtt_tls:
+    name: TLS
+    description: Encrypted connection to the broker.
+  mqtt_tls_insecure:
+    name: Accept a self-signed certificate
+    description: Do not verify the broker certificate (local network only).
