@@ -50,6 +50,10 @@ const L = {
   IRCUTMode: ["Mode du filtre infrarouge (IR-CUT)"], IrcutSwap: ["Inverser le filtre infrarouge"], PictureFlip: ["Retourner l'image (haut / bas)"],
   PictureMirror: ["Image miroir (gauche / droite)"], RejectFlicker: ["Anti-scintillement (éclairage 50 Hz)"], WhiteBalance: ["Balance des blancs"],
   // Camera.ParamEx
+  AutomaticAdjustment: ["Réglage automatique de l'image"], LDCValue: ["Force de la correction de déformation", "Utilisée quand la correction de la déformation est activée"],
+  AlarmInfo: ["Texte de l'alerte", "Texte joint au message envoyé"], MsgtoNetEnable: ["Envoi au logiciel CMS (réseau)"], MultimediaMsgEnable: ["Message multimédia (MMS)"],
+  DnsServer1: ["Serveur DNS du cloud 1"], DnsServer2: ["Serveur DNS du cloud 2"], IranCalendar: ["Calendrier iranien"], ChannelName: ["Nom de la caméra"],
+  VoiceTipInterval: ["Intervalle entre deux messages vocaux (s)"], VoiceType: ["Type de message vocal"],
   AeMeansure: ["Mesure de la lumière"], Ldc: ["Correction de la déformation de l'objectif", "Redresse les bords courbés (effet grand angle)"], BroadTrends: ["Large dynamique (WDR)"], CorridorMode: ["Mode couloir (image verticale)"], Dis: ["Stabilisation"],
   ExposureTime: ["Temps d'exposition (ms)"], LightRestrainLevel: ["Atténuation des lumières fortes", "Phares, lampadaires : 0 = désactivée, plus haut = plus atténué"], LowLuxMode: ["Mode faible luminosité", "Image plus claire dans le noir, un peu plus de bruit"],
   PreventOverExpo: ["Éviter la surexposition", "Évite les visages « brûlés » par l'infrarouge de près"], SoftPhotosensitivecontrol: ["Détection du jour et de la nuit"], Style: ["Style d'image", "Rendu des couleurs et du contraste"],
@@ -245,9 +249,12 @@ async function pageInfo() {
       <div class="bar"><button class="btn primary" id="sync">Mettre la caméra à l'heure de Home Assistant</button></div>
       <h3>Actions</h3>
       <div class="bar"><button class="btn" id="export">Exporter toute la configuration (JSON)</button><button class="btn danger" id="reboot">Redémarrer la caméra</button></div>
+      <div class="bar"><button class="btn" id="untranslated">Lister les réglages sans nom français</button></div>
+      <div id="untr"></div>
       <p class="muted">L'export garde une copie complète des réglages, à conserver avant de gros changements.</p>
       <h3>Système</h3><table class="kv">${rows}</table>`;
     $("#sync").onclick = async () => { try { const r = await api(`api/${S.cam.id}/time`, { method: "POST" }); toast(`Caméra mise à l'heure : ${r.time}`); pageInfo(); } catch (e) { toast(e.message, true); } };
+    $("#untranslated").onclick = listUntranslated;
     $("#export").onclick = () => { const names = SECTIONS.flatMap(([, l]) => l.map((s) => s[0])).join(","); window.location.href = `api/${S.cam.id}/export?names=${encodeURIComponent(names)}`; };
     let armed = null;
     $("#reboot").onclick = async (ev) => {
@@ -491,6 +498,27 @@ async function save(value = null, name = S.name) {
     toast(r.restart ? "Enregistré. La caméra doit redémarrer pour appliquer ce réglage (Infos et actions › Redémarrer)." : "Enregistré sur la caméra (l'ancienne valeur est sauvegardée).");
     if (value === null) pageSection(name);
   } catch (e) { toast(e.message, true); }
+}
+
+/** Recense les noms de réglages que l'application ne sait pas encore traduire (noms seulement, aucune valeur). */
+async function listUntranslated() {
+  const out = $("#untr");
+  out.innerHTML = `<p class="muted">Lecture de toutes les sections…</p>`;
+  const lines = [];
+  for (const [, list] of SECTIONS) for (const [name] of list) {
+    let value;
+    try { value = (await api(`api/${S.cam.id}/config/${encodeURIComponent(name)}`)).value; } catch (e) { continue; }
+    const missing = new Set();
+    const walk = (v) => {
+      if (Array.isArray(v)) { v.forEach(walk); return; }
+      if (v && typeof v === "object") for (const [k, x] of Object.entries(v)) { if (!L[k]) missing.add(k); walk(x); }
+    };
+    walk(value);
+    if (missing.size) lines.push(`${name} : ${[...missing].sort().join(", ")}`);
+  }
+  out.innerHTML = lines.length
+    ? `<p class="muted">Noms des réglages seulement, aucune valeur : vous pouvez copier cette liste dans une issue GitHub pour qu'ils soient traduits.</p><textarea class="raw" style="min-height:160px" readonly>${esc(lines.join("\n"))}</textarea>`
+    : `<p class="muted">Tous les réglages ont un nom en français.</p>`;
 }
 
 /* ------------------------------------------------------- éditeur JSON */

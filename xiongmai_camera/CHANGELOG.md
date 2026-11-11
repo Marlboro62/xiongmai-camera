@@ -1,5 +1,10 @@
 # Changements
 
+## 0.1.0-beta.9
+
+- Nouveaux noms en français : réglage automatique de l'image, force de la correction de déformation, texte de l'alerte, envoi au logiciel CMS, message multimédia (MMS), message vocal (type, intervalle), serveurs DNS du cloud.
+- Nouveau bouton **Infos et actions › Lister les réglages sans nom français** : il parcourt toutes les sections et donne la liste des noms encore en anglais (noms seulement, aucune valeur), à copier dans une issue.
+
 ## 0.1.0-beta.8
 
 - **Image (avancé)** en clair : interrupteurs (correction de la déformation de l'objectif, mode faible luminosité, éviter la surexposition, mode couloir, stabilisation), listes (mesure de la lumière, détection du jour et de la nuit, style d'image) et explications.
