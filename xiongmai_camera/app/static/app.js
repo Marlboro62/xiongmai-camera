@@ -52,7 +52,7 @@ const L = {
   // Camera.ParamEx
   AutomaticAdjustment: ["Réglage automatique de l'image"], LDCValue: ["Force de la correction de déformation", "Utilisée quand la correction de la déformation est activée"],
   AlarmInfo: ["Texte de l'alerte", "Texte joint au message envoyé"], MsgtoNetEnable: ["Envoi au logiciel CMS (réseau)"], MultimediaMsgEnable: ["Message multimédia (MMS)"],
-  DnsServer1: ["Serveur DNS du cloud 1"], DnsServer2: ["Serveur DNS du cloud 2"], IranCalendar: ["Calendrier iranien"], Language: ["Langue", "Langue des menus de la caméra (NetSurveillance, CMS), pas celle de cette page"], ChannelName: ["Nom de la caméra"],
+  DnsServer1: ["Serveur DNS du cloud 1"], DnsServer2: ["Serveur DNS du cloud 2"], IranCalendar: ["Calendrier iranien"], Language: ["Langue", "Menus intégrés de l'appareil (écran branché sur un enregistreur) : sans effet visible sur une caméra seule. La langue de NetSurveillance se choisit sur sa page de connexion"], ChannelName: ["Nom de la caméra"],
   SnapInterval: ["Intervalle entre deux photos (s)", "0 = réglage par défaut"],
   ChannelNum: ["Nombre de canaux", "Information de la caméra : ne pas modifier"], DeviceType: ["Type d'appareil", "Information de la caméra : ne pas modifier"],
   OtherFunction: ["Autres fonctions", "Réservé au fabricant : laisser vide"], SN: ["Numéro de série (réseau)", "Ne le publiez pas"],
@@ -80,7 +80,7 @@ const L = {
   MatrixEnable: ["Matrice vidéo", "Enregistreur seulement : sans effet sur une caméra seule"], CheckDiskInterval: ["Vérification du disque (s)", "Enregistreur seulement"],
   AlarmOutMask: ["Sorties d'alarme déclenchées"], RecordMask: ["Canaux à enregistrer"], SnapShotMask: ["Canaux à photographier"], ShowInfoMask: ["Canaux qui affichent le message"],
   TourMask: ["Canaux qui lancent la ronde", "Caméra motorisée seulement"], MatrixMask: ["Canaux de la matrice", "Enregistreur seulement"], PtzLink: ["Action PTZ par canal", "Caméra motorisée seulement"],
-  TimeSection: ["Plage horaire", "Jours et heures où cette détection est active"], MultiPicture: ["Écran multiple"], ShortMsgEnable: ["SMS"], SensorType: ["Type de contact", "NO : normalement ouvert · NC : normalement fermé"],
+  TimeSection: ["Plage horaire", "Jours et heures où ce réglage s'applique"], MultiPicture: ["Écran multiple"], ShortMsgEnable: ["SMS"], SensorType: ["Type de contact", "NO : normalement ouvert · NC : normalement fermé"],
   AlarmOutStatus: ["État"], AlarmOutType: ["Mode"],
   // réseau
   HostIP: ["Adresse IP"], Submask: ["Masque de sous-réseau"], GateWay: ["Passerelle"], HostName: ["Nom d'hôte"], HttpPort: ["Port web (HTTP)"],
@@ -391,6 +391,11 @@ function field(key, value, path) {
   if (/Mask$/.test(key) && isLongHex(value)) return maskField(key, value, path);
   if (key === "PtzLink" && isPtz(value)) return ptzField(key, value, path);
   if (key === "TimeSection" && isSchedule(value)) return scheduleField(key, value, path);
+  if (key === "TimeSection" && typeof value === "string" && SLOT_RE.test(value)) {
+    const [, en, from, to] = value.match(SLOT_RE);
+    return `<div class="row">${labelFor(key, path)}<div class="slot" data-path="${esc(path)}" data-type="slot1"><label class="sw"><input type="checkbox" ${en === "1" ? "checked" : ""} aria-label="Plage active"><span></span></label>
+      de <input type="text" class="hhmm" value="${from}" inputmode="numeric" aria-label="Début"> à <input type="text" class="hhmm" value="${to}" inputmode="numeric" aria-label="Fin"></div></div>`;
+  }
   if (IP_KEYS.has(key) && isHex(value)) return `<div class="row">${labelFor(key, path)}<input type="text" id="${esc(id)}" data-path="${esc(path)}" data-type="ip" value="${esc(hexToIp(value))}" inputmode="decimal"></div>`;
   if (typeof value === "number") return `<div class="row">${labelFor(key, path)}<input type="number" id="${esc(id)}" data-path="${esc(path)}" data-type="num" value="${esc(value)}" step="any"></div>`;
   if (typeof value === "string") {
@@ -404,6 +409,9 @@ function field(key, value, path) {
   }
   return group(key, value, path);
 }
+
+/* Titre des éléments d'une liste quand le nom de la section ne convient pas */
+const ITEM_TITLE = { "AVEnc.VideoColor": "Réglage selon l'heure" };
 
 function sectionChannels(name) {
   const i = S.sys?.[S.cam?.id] || {};
@@ -420,8 +428,11 @@ function group(key, value, path, open = false) {
       const n = sectionChannels(S.name);
       if (value.length > n) { list = value.slice(0, n); hidden = value.length - n; }
     }
-    const inner = list.map((v, i) => (v && typeof v === "object" ? group(`${title} ${list.length > 1 ? i + 1 : ""}`.trim(), v, `${path}.${i}`, list.length === 1) : field(String(i), v, `${path}.${i}`))).join("");
     const note = hidden ? `<p class="muted">${hidden} copie(s) pour des canaux que cette caméra n'a pas : non affichées, conservées telles quelles.</p>` : "";
+    // un seul élément (une seule caméra) : pas de niveau de titre en plus
+    if (list.length === 1 && list[0] && typeof list[0] === "object") return group(key, list[0], `${path}.0`, true) + note;
+    const item = ITEM_TITLE[S.name] && path !== "v" ? ITEM_TITLE[S.name] : title;
+    const inner = list.map((v, i) => (v && typeof v === "object" ? group(`${item} ${i + 1}`, v, `${path}.${i}`) : field(String(i), v, `${path}.${i}`))).join("");
     return `<details ${open || list.length <= 2 ? "open" : ""}><summary>${esc(title)}</summary>${inner}${note}</details>`;
   }
   const rows = Object.entries(value).map(([k, v]) => field(k, v, `${path}.${k}`)).join("");
@@ -448,6 +459,14 @@ function readForm() {
     else if (t === "hexenum") setAt(v, p, "0x" + Number(el.value).toString(16).toUpperCase().padStart(Number(el.dataset.width), "0"));
     else if (t === "us") { const us = Math.round(Number(el.value) * 1000); if (!(us >= 0) || el.value === "") throw new Error(`Temps invalide : ${p.split(".").pop()}`); setAt(v, p, "0x" + us.toString(16).toUpperCase().padStart(Number(el.dataset.width), "0")); }
     else if (t === "numbool") setAt(v, p, el.checked ? 1 : 0);
+    else if (t === "slot1") {
+      const [from, to] = [...el.querySelectorAll(".hhmm")].map((i) => i.value.trim());
+      if (!HHMM_RE.test(from) || !HHMM_RE.test(to)) throw new Error(`Heure invalide (format HH:MM, ex. 08:30) : ${from} – ${to}`);
+      const orig = getAt(S.value, p), m = orig.match(SLOT_RE);
+      // inchangé : renvoyer la valeur d'origine telle quelle (secondes comprises)
+      const en = el.querySelector("input[type=checkbox]").checked ? "1" : "0";
+      setAt(v, p, m && m[1] === en && m[2] === from && m[3] === to ? orig : `${en} ${from}:00-${to}:00`);
+    }
     else if (t === "dst") {
       const o = JSON.parse(el.dataset.orig), q = (c) => Number(el.querySelector(c).value);
       if (q(".d-mode") === 1) Object.assign(o, { Week: q(".d-wk"), Day: q(".d-wd"), Month: q(".d-m1") });

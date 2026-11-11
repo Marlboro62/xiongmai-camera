@@ -1,5 +1,11 @@
 # Changements
 
+## 0.1.0-beta.16
+
+- **Couleurs** : plus de titres en double (« Couleurs › Couleurs › Couleurs 1 ») ; les deux réglages s'appellent « Réglage selon l'heure 1 / 2 », et leur plage horaire s'affiche « de 00:00 à 24:00 » avec un interrupteur au lieu de `0 00:00:00-24:00:00`.
+- Une section qui ne contient qu'un élément (une seule caméra) n'ajoute plus de niveau de titre.
+- **Langue** : explication corrigée (menus intégrés de l'appareil ; la langue de NetSurveillance se choisit sur sa page de connexion).
+
 ## 0.1.0-beta.15
 
 - Sécurité : si l'heure de Home Assistant ne peut pas être lue, la page l'indique et le bouton **Mettre la caméra à l'heure** est désactivé (au lieu d'envoyer l'heure UTC). La cause est écrite une fois dans le journal de l'application.
