@@ -1,5 +1,9 @@
 # Changements
 
+## 0.1.0-beta.3
+
+- Correction : **Mettre la caméra à l'heure** envoyait encore l'heure UTC. L'heure est maintenant demandée directement à Home Assistant (fuseau et heure d'été compris).
+
 ## 0.1.0-beta.2
 
 - Ajout : l'image de la caméra sous la grille des zones de détection, avec le bouton **Actualiser l'image** (option `snapshot_entity` pour prendre l'image d'une entité caméra de Home Assistant, sinon la caméra elle-même).

@@ -24,7 +24,7 @@ from urllib.parse import parse_qs, quote, unquote, urlsplit
 
 from dvrip import DvripClient, DvripError
 
-VERSION = "0.1.0-beta.2"
+VERSION = "0.1.0-beta.3"
 DATA = Path(os.environ.get("XM_DATA", "/data"))
 STATIC = Path(__file__).parent / "static"
 INGRESS_IP = "172.30.32.2"
@@ -85,18 +85,38 @@ def http_get(url: str, headers: dict[str, str] | None = None, timeout: float = 6
         return resp.read(8 * 1024 * 1024)
 
 
-def core_api(path: str) -> bytes:
+def core_api(path: str, payload: dict[str, Any] | None = None) -> bytes:
     """Appel à l'API de Home Assistant par le Supervisor (homeassistant_api)."""
     token = os.environ.get("SUPERVISOR_TOKEN")
     if not token:
         raise OSError("API de Home Assistant indisponible")
-    return http_get(f"{SUPERVISOR}{path}", {"Authorization": f"Bearer {token}"})
+    headers = {"Authorization": f"Bearer {token}"}
+    if payload is None:
+        return http_get(f"{SUPERVISOR}{path}", headers)
+    headers["Content-Type"] = "application/json"
+    req = urllib.request.Request(f"{SUPERVISOR}{path}", json.dumps(payload).encode(), headers, method="POST")
+    with urllib.request.urlopen(req, timeout=6) as resp:  # noqa: S310
+        return resp.read(65536)
+
+
+TIME_RE = re.compile(r"^\d{4}-\d\d-\d\d \d\d:\d\d:\d\d$")
+
+
+async def ha_now() -> str:
+    """Heure locale de Home Assistant, demandée à Home Assistant lui-même (fuseau et heure d'été compris).
+    Repli : l'heure locale du conteneur."""
+    try:
+        raw = await asyncio.to_thread(core_api, "/template", {"template": "{{ now().strftime('%Y-%m-%d %H:%M:%S') }}"})
+        value = raw.decode().strip()
+        if TIME_RE.match(value):
+            return value
+    except (OSError, ValueError) as err:
+        _LOGGER.debug("Heure de Home Assistant illisible : %s", err)
+    return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
 
 def use_ha_timezone() -> None:
     """Le conteneur démarre en UTC : on prend le fuseau de Home Assistant (heure des journaux et mise à l'heure)."""
-    if os.environ.get("TZ"):
-        return
     try:
         tz = json.loads(core_api("/config")).get("time_zone")
     except (OSError, ValueError) as err:
@@ -220,7 +240,7 @@ class App:
                 now = await cam["client"].get_time()
             except DvripError:
                 now = None
-            return json_response({"info": info, "time": now, "ha_time": datetime.now().strftime("%Y-%m-%d %H:%M:%S")})
+            return json_response({"info": info, "time": now, "ha_time": await ha_now()})
         except DvripError as err:
             return self._error(err)
 
@@ -295,10 +315,10 @@ class App:
         return json_response({"error": "Image indisponible", "details": errors}, 502)
 
     async def api_time(self, req: Request) -> Response:
-        """Met la caméra à l'heure de Home Assistant (heure locale du conteneur, variable TZ)."""
+        """Met la caméra à l'heure de Home Assistant (heure demandée à Home Assistant, heure d'été comprise)."""
         cam = self.cams.get(req.params["cam"])
         try:
-            value = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            value = await ha_now()
             ret = await cam["client"].set_time(value)
             _LOGGER.info("%s : mise à l'heure %s", cam["name"], value)
             return json_response({"ok": True, "ret": ret, "time": value})

@@ -41,7 +41,7 @@ Après certains réglages (réseau surtout), la caméra demande un redémarrage 
 
 ## Heure
 
-L'application prend le fuseau horaire de Home Assistant : la mise à l'heure de la caméra et les journaux sont à l'heure locale.
+**Mettre la caméra à l'heure** envoie l'heure locale de Home Assistant (fuseau et heure d'été compris). C'est un réglage ponctuel : pour que la caméra reste à l'heure et passe seule à l'heure d'été et d'hiver, activez **Heure par Internet (NTP)** avec le bon fuseau, et la règle d'heure d'été dans **Langue, date et heure d'été**.
 
 ## Sauvegardes
 
